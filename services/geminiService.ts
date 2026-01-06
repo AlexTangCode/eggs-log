@@ -3,6 +3,7 @@ import { GoogleGenAI } from "@google/genai";
 import { Hen, EggLog } from "../types";
 
 export const getSmartInsights = async (hens: Hen[], logs: EggLog[]) => {
+  // Initialize inside the function to ensure the API Key is fresh and avoid top-level ReferenceErrors
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   // Prep data for context
@@ -40,10 +41,8 @@ export const getSmartInsights = async (hens: Hen[], logs: EggLog[]) => {
       contents: prompt,
       config: {
         temperature: 0.7,
-        // Recommendation: Avoid setting maxOutputTokens if not required to prevent truncated responses.
       }
     });
-    // Ensure we return the extracted string output using .text property
     return response.text || "No insights found for the current data.";
   } catch (error) {
     console.error("Gemini Error:", error);

@@ -18,15 +18,13 @@
             color: #2D2D2D;
             margin: 0;
             padding: 0;
-            /* Disable text selection and browser highlights for a native app feel */
             -webkit-touch-callout: none;
             -webkit-user-select: none;
             user-select: none;
             -webkit-tap-highlight-color: transparent;
-            overflow: hidden; /* App-like scrolling handled by inner containers */
+            overflow: hidden;
         }
         
-        /* Smooth scrolling for lists */
         .scroll-native {
             -webkit-overflow-scrolling: touch;
             scrollbar-width: none;
@@ -35,7 +33,6 @@
             display: none;
         }
 
-        /* Safe area handling */
         .pb-safe {
             padding-bottom: env(safe-area-inset-bottom);
         }
@@ -49,7 +46,6 @@
             -webkit-backdrop-filter: blur(20px);
         }
 
-        /* Custom range slider styling */
         input[type=range] {
             -webkit-appearance: none;
             background: transparent;
@@ -72,6 +68,10 @@
             border-radius: 4px;
         }
     </style>
+    <script>
+        // Polyfill process.env for browser compatibility
+        window.process = window.process || { env: {} };
+    </script>
 <script type="importmap">
 {
   "imports": {
@@ -89,5 +89,6 @@
 </head>
 <body>
     <div id="root"></div>
+    <script type="module" src="./index.tsx"></script>
 </body>
 </html>
