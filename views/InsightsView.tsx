@@ -93,14 +93,14 @@ const InsightsView: React.FC<InsightsViewProps> = ({ hens, logs }) => {
         )}
       </div>
 
-      {/* Chart Section */}
+      {/* Chart Section - Ensure stable height and min-width for Recharts */}
       <div className="bg-white p-8 rounded-[32px] shadow-[0_15px_30px_rgba(0,0,0,0.03)] border border-white/50">
         <div className="flex items-center justify-between mb-8">
           <span className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-300">Daily Production</span>
           <TrendingUp size={16} className="text-gray-200" />
         </div>
-        <div className="h-44 w-full">
-          <ResponsiveContainer width="100%" height="100%">
+        <div className="h-44 w-full relative min-h-[176px]">
+          <ResponsiveContainer width="100%" height="100%" minWidth={100} minHeight={100}>
             <AreaChart data={chartData}>
               <defs><linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#FB923C" stopOpacity={0.1}/><stop offset="95%" stopColor="#FB923C" stopOpacity={0}/></linearGradient></defs>
               <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#F1F5F9" />

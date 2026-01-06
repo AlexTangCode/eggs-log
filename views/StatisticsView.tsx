@@ -387,11 +387,11 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, expenses, o
         </div>
 
         {stats.pieData.length > 0 && (
-          <div className="h-40 w-full mt-4 flex items-center justify-center relative">
+          <div className="h-40 w-full mt-4 relative min-h-[160px] min-w-[160px]">
              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                 <ReceiptText size={16} className="text-[#D48C45] opacity-20" />
              </div>
-             <ResponsiveContainer width="100%" height="100%">
+             <ResponsiveContainer width="100%" height="100%" minWidth={100} minHeight={100}>
                 <PieChart>
                   <Pie
                     data={stats.pieData}
