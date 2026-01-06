@@ -1,9 +1,9 @@
+
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { Hen, EggLog } from '../types';
-// Added missing CheckCircle import from lucide-react to resolve "Cannot find name 'CheckCircle'" error
-import { Scale, Egg, TrendingUp, Edit3, Trash2, X, Clock, ListFilter, Hash, ChevronRight, CheckCircle } from 'lucide-react';
+import { Scale, Egg, TrendingUp, Edit3, Trash2, X, Clock, ListFilter, Hash, ChevronRight, CheckCircle, AlertTriangle } from 'lucide-react';
 import { deleteEggLog, updateEggLogDetailed } from '../services/firebase';
 
 interface StatisticsViewProps {
@@ -14,9 +14,9 @@ interface StatisticsViewProps {
 
 const LogItem: React.FC<{ 
   log: EggLog; 
-  onDelete: (id: string) => void; 
+  onDeleteRequest: (id: string) => void; 
   onEdit: (log: EggLog) => void 
-}> = ({ log, onDelete, onEdit }) => {
+}> = ({ log, onDeleteRequest, onEdit }) => {
   const x = useMotionValue(0);
   const opacity = useTransform(x, [-100, -20], [1, 0]);
 
@@ -39,7 +39,10 @@ const LogItem: React.FC<{
         dragConstraints={{ left: -120, right: 0 }}
         dragElastic={0.05}
         onDragEnd={(_, info) => {
-          if (info.offset.x < -100) onDelete(log.id);
+          if (info.offset.x < -100) {
+            onDeleteRequest(log.id);
+            x.set(0); // Snap back
+          }
         }}
         style={{ x }}
         className="bg-white p-6 rounded-[32px] border border-[#E5D3C5]/20 flex items-center justify-between shadow-[0_15px_40px_rgba(45,45,45,0.015)] relative z-10 touch-pan-x"
@@ -82,6 +85,7 @@ const LogItem: React.FC<{
 
 const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, onRefresh }) => {
   const [editingLog, setEditingLog] = useState<EggLog | null>(null);
+  const [logToDeleteId, setLogToDeleteId] = useState<string | null>(null);
   const [showFullHistory, setShowFullHistory] = useState(false);
   
   const [editWeight, setEditWeight] = useState<number>(0);
@@ -115,13 +119,15 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, onRefresh }
     return { total: totalEggs, avgWeight, chartData };
   }, [logs]);
 
-  const handleDeleteLog = async (id: string) => {
-    if (!id) return;
+  const handleDeleteLog = async () => {
+    if (!logToDeleteId) return;
     try {
-      await deleteEggLog(id);
+      await deleteEggLog(logToDeleteId);
+      setLogToDeleteId(null);
       onRefresh?.();
     } catch (e) {
       console.error(e);
+      setLogToDeleteId(null);
     }
   };
 
@@ -222,7 +228,7 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, onRefresh }
               <LogItem 
                 key={log.id} 
                 log={log} 
-                onDelete={handleDeleteLog} 
+                onDeleteRequest={(id) => setLogToDeleteId(id)} 
                 onEdit={(l) => {
                   setEditingLog(l);
                   setEditWeight(l.weight);
@@ -241,6 +247,48 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, onRefresh }
           </p>
         )}
       </div>
+
+      {/* Delete Confirmation Modal */}
+      <AnimatePresence>
+        {logToDeleteId && (
+          <motion.div 
+            initial={{ opacity: 0 }} 
+            animate={{ opacity: 1 }} 
+            exit={{ opacity: 0 }} 
+            className="fixed inset-0 z-[500] bg-[#2D2D2D]/20 backdrop-blur-3xl flex items-center justify-center p-8"
+          >
+            <motion.div 
+              initial={{ scale: 0.9, y: 30 }} 
+              animate={{ scale: 1, y: 0 }} 
+              className="bg-white rounded-[44px] w-full max-w-sm p-10 shadow-2xl relative border border-[#E5D3C5]/20 text-center"
+            >
+              <div className="w-16 h-16 bg-[#B66649]/10 rounded-[28px] flex items-center justify-center text-[#B66649] mx-auto mb-6">
+                <AlertTriangle size={32} />
+              </div>
+              <h2 className="font-serif text-2xl font-bold text-[#2D2D2D] mb-4 tracking-tighter italic">
+                Delete Log?
+              </h2>
+              <p className="text-sm text-[#A0A0A0] leading-relaxed mb-8 font-medium">
+                Are you sure you want to remove this egg harvest record? This cannot be undone.
+              </p>
+              <div className="grid grid-cols-2 gap-4">
+                <button 
+                  onClick={() => setLogToDeleteId(null)}
+                  className="py-4 bg-[#F9F5F0] text-[#2D2D2D] rounded-[24px] font-bold text-sm transition-transform active:scale-95"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={handleDeleteLog}
+                  className="py-4 bg-[#D48C45] text-white rounded-[24px] font-bold text-sm shadow-lg shadow-[#D48C45]/20 transition-transform active:scale-95"
+                >
+                  Delete
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Edit Modal */}
       <AnimatePresence>

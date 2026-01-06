@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Plus, Trash2, Edit2, X, Users } from 'lucide-react';
+import { Plus, Trash2, Edit2, X, Users, AlertTriangle } from 'lucide-react';
 import { addDoc } from 'firebase/firestore';
 import { hensRef, deleteHenAndLogs, updateHen } from '../services/firebase';
 import { Hen } from '../types';
@@ -15,9 +15,9 @@ interface HensViewProps {
 
 const HenItem: React.FC<{ 
   hen: Hen; 
-  onDelete: (hen: Hen) => void; 
+  onDeleteRequest: (hen: Hen) => void; 
   onEdit: (hen: Hen) => void 
-}> = ({ hen, onDelete, onEdit }) => {
+}> = ({ hen, onDeleteRequest, onEdit }) => {
   const x = useMotionValue(0);
   const opacity = useTransform(x, [-100, -20], [1, 0]);
 
@@ -39,7 +39,10 @@ const HenItem: React.FC<{
         dragConstraints={{ left: -100, right: 0 }}
         dragElastic={0.05}
         onDragEnd={(_, info) => {
-          if (info.offset.x < -60) onDelete(hen);
+          if (info.offset.x < -60) {
+            onDeleteRequest(hen);
+            x.set(0); // Snap back so it doesn't stay open if cancelled
+          }
         }}
         style={{ x }}
         className="bg-white p-6 rounded-[32px] border border-[#E5D3C5]/20 flex items-center justify-between shadow-[0_10px_30px_rgba(45,45,45,0.01)] relative z-10 touch-pan-x"
@@ -70,6 +73,7 @@ const HenItem: React.FC<{
 const HensView: React.FC<HensViewProps> = ({ hens, onRefresh, onNotify }) => {
   const [showAdd, setShowAdd] = useState(false);
   const [editingHen, setEditingHen] = useState<Hen | null>(null);
+  const [henToDelete, setHenToDelete] = useState<Hen | null>(null);
 
   const [name, setName] = useState('');
   const [breed, setBreed] = useState('');
@@ -122,14 +126,16 @@ const HensView: React.FC<HensViewProps> = ({ hens, onRefresh, onNotify }) => {
     setShowAdd(false);
   };
 
-  const handleDeleteHen = async (hen: Hen) => {
-    if (!hen.id) return;
+  const handleDeleteHen = async () => {
+    if (!henToDelete || !henToDelete.id) return;
     try {
-      await deleteHenAndLogs(hen.id);
-      onNotify(`${hen.name} removed.`);
+      await deleteHenAndLogs(henToDelete.id);
+      onNotify(`${henToDelete.name} removed.`);
+      setHenToDelete(null);
       onRefresh();
     } catch (e) {
       onNotify("Deletion error.", "info");
+      setHenToDelete(null);
     }
   };
 
@@ -172,7 +178,7 @@ const HensView: React.FC<HensViewProps> = ({ hens, onRefresh, onNotify }) => {
               <HenItem 
                 key={hen.id} 
                 hen={hen} 
-                onDelete={handleDeleteHen} 
+                onDeleteRequest={(h) => setHenToDelete(h)} 
                 onEdit={openEdit} 
               />
             ))
@@ -185,6 +191,48 @@ const HensView: React.FC<HensViewProps> = ({ hens, onRefresh, onNotify }) => {
           </p>
         )}
       </div>
+
+      {/* Confirmation Dialog for Deletion */}
+      <AnimatePresence>
+        {henToDelete && (
+          <motion.div 
+            initial={{ opacity: 0 }} 
+            animate={{ opacity: 1 }} 
+            exit={{ opacity: 0 }} 
+            className="fixed inset-0 z-[200] bg-[#2D2D2D]/20 backdrop-blur-3xl flex items-center justify-center p-8"
+          >
+            <motion.div 
+              initial={{ scale: 0.9, y: 30 }} 
+              animate={{ scale: 1, y: 0 }} 
+              className="bg-white rounded-[44px] w-full max-w-sm p-10 shadow-2xl relative border border-[#E5D3C5]/20 text-center"
+            >
+              <div className="w-16 h-16 bg-[#B66649]/10 rounded-[28px] flex items-center justify-center text-[#B66649] mx-auto mb-6">
+                <AlertTriangle size={32} />
+              </div>
+              <h2 className="font-serif text-2xl font-bold text-[#2D2D2D] mb-4 tracking-tighter italic">
+                Confirm Removal?
+              </h2>
+              <p className="text-sm text-[#A0A0A0] leading-relaxed mb-8 font-medium">
+                Are you sure you want to remove <span className="text-[#2D2D2D] font-bold">{henToDelete.name}</span>? This will also delete all of her egg records.
+              </p>
+              <div className="grid grid-cols-2 gap-4">
+                <button 
+                  onClick={() => setHenToDelete(null)}
+                  className="py-4 bg-[#F9F5F0] text-[#2D2D2D] rounded-[24px] font-bold text-sm transition-transform active:scale-95"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={handleDeleteHen}
+                  className="py-4 bg-[#D48C45] text-white rounded-[24px] font-bold text-sm shadow-lg shadow-[#D48C45]/20 transition-transform active:scale-95"
+                >
+                  Delete
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {(showAdd || editingHen) && (
