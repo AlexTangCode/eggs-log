@@ -1,14 +1,15 @@
 
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion';
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, BarChart, Bar, Cell } from 'recharts';
-import { Hen, EggLog } from '../types';
-import { Scale, Egg, TrendingUp, Edit3, Trash2, X, Clock, ListFilter, Hash, CheckCircle, AlertTriangle, Trophy, CalendarDays, ArrowUpRight, ArrowDownRight, CalendarRange } from 'lucide-react';
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, BarChart, Bar, Cell, PieChart, Pie } from 'recharts';
+import { Hen, EggLog, Expense, ExpenseCategory } from '../types';
+import { Scale, Egg, TrendingUp, Edit3, Trash2, X, Clock, ListFilter, Hash, CheckCircle, AlertTriangle, Trophy, CalendarDays, ArrowUpRight, ArrowDownRight, CalendarRange, Coins, Landmark, ReceiptText } from 'lucide-react';
 import { deleteEggLog, updateEggLogDetailed } from '../services/firebase';
 
 interface StatisticsViewProps {
   hens: Hen[];
   logs: EggLog[];
+  expenses: Expense[];
   onRefresh?: () => void;
 }
 
@@ -82,11 +83,12 @@ const LogItem: React.FC<{
   );
 };
 
-const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, onRefresh }) => {
+const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, expenses, onRefresh }) => {
   const [timeRange, setTimeRange] = useState<'month' | 'year'>('month');
   const [editingLog, setEditingLog] = useState<EggLog | null>(null);
   const [logToDeleteId, setLogToDeleteId] = useState<string | null>(null);
   const [showFullHistory, setShowFullHistory] = useState(false);
+  const [eggPrice, setEggPrice] = useState(1.5); // Default price ¥1.5
   
   const [editWeight, setEditWeight] = useState<number>(0);
   const [editQuantity, setEditQuantity] = useState<number>(1);
@@ -98,34 +100,30 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, onRefresh }
     const currentYear = now.getFullYear();
     const currentMonth = now.getMonth();
 
-    const startOfCurrentMonth = new Date(currentYear, currentMonth, 1);
-    const startOfCurrentYear = new Date(currentYear, 0, 1);
-    
-    const startOfPrevMonth = new Date(currentYear, currentMonth - 1, 1);
-    const endOfPrevMonth = new Date(currentYear, currentMonth, 0);
-    const startOfPrevYear = new Date(currentYear - 1, 0, 1);
-    const endOfPrevYear = new Date(currentYear - 1, 11, 31, 23, 59, 59);
+    const startOfCurrentMonth = new Date(currentYear, currentMonth, 1).getTime();
+    const startOfCurrentYear = new Date(currentYear, 0, 1).getTime();
 
-    const monthLogs = logs.filter(l => l.timestamp >= startOfCurrentMonth.getTime());
-    const prevMonthLogs = logs.filter(l => l.timestamp >= startOfPrevMonth.getTime() && l.timestamp <= endOfPrevMonth.getTime());
-
-    const yearLogs = logs.filter(l => l.timestamp >= startOfCurrentYear.getTime());
-    const prevYearLogs = logs.filter(l => l.timestamp >= startOfPrevYear.getTime() && l.timestamp <= endOfPrevYear.getTime());
-
-    const activeLogs = timeRange === 'month' ? monthLogs : yearLogs;
+    const activeLogs = logs.filter(l => l.timestamp >= (timeRange === 'month' ? startOfCurrentMonth : startOfCurrentYear));
+    const activeExpenses = expenses.filter(e => e.timestamp >= (timeRange === 'month' ? startOfCurrentMonth : startOfCurrentYear));
     
     const activeTotal: number = activeLogs.reduce((acc: number, l) => acc + (l.quantity || 1), 0);
-    
-    const prevTotal: number = timeRange === 'month' 
-      ? prevMonthLogs.reduce((acc: number, l) => acc + (l.quantity || 1), 0)
-      : prevYearLogs.reduce((acc: number, l) => acc + (l.quantity || 1), 0);
-
-    const diff: number = activeTotal - prevTotal;
-    const diffPercent = prevTotal > 0 ? Math.round((diff / prevTotal) * 100) : null;
-
     const totalEggs: number = logs.reduce((acc: number, l) => acc + (l.quantity || 1), 0);
     const totalWeight: number = logs.reduce((acc: number, l: EggLog) => acc + (Number(l.weight) * (Number(l.quantity) || 1)), 0);
     const avgWeight = totalEggs > 0 ? Math.round(totalWeight / totalEggs) : 0;
+
+    // Financial calculations
+    const totalExp = activeExpenses.reduce((acc, e) => acc + e.amount, 0);
+    const totalRev = activeTotal * eggPrice;
+    const netProfit = totalRev - totalExp;
+    const costPerEgg = activeTotal > 0 ? (totalExp / activeTotal).toFixed(2) : '0.00';
+
+    // Pie chart data
+    const expByCategory = activeExpenses.reduce((acc, e) => {
+      acc[e.category] = (acc[e.category] || 0) + e.amount;
+      return acc;
+    }, {} as Record<string, number>);
+
+    const pieData = Object.entries(expByCategory).map(([name, value]) => ({ name, value }));
 
     const henCounts = activeLogs.reduce((acc, l) => {
       acc[l.henName] = (acc[l.henName] || 0) + (l.quantity || 1);
@@ -133,46 +131,21 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, onRefresh }
     }, {} as Record<string, number>);
 
     const rankings = Object.entries(henCounts)
-      .sort((a: [string, number], b: [string, number]) => b[1] - a[1])
+      .sort((a, b) => b[1] - a[1])
       .map(([name, count]) => ({ name, count }));
-
-    let chartData;
-    if (timeRange === 'month') {
-      chartData = [...Array(14)].map((_, i) => {
-        const d = new Date();
-        d.setDate(d.getDate() - (13 - i));
-        const dateStr = d.toDateString();
-        const count = logs
-          .filter(l => new Date(l.timestamp).toDateString() === dateStr)
-          .reduce((acc, l) => acc + (l.quantity || 1), 0);
-        return {
-          name: d.toLocaleDateString([], { month: 'short', day: 'numeric' }),
-          eggs: count
-        };
-      });
-    } else {
-      chartData = [...Array(12)].map((_, i) => {
-        const monthStart = new Date(currentYear, i, 1);
-        const monthEnd = new Date(currentYear, i + 1, 0, 23, 59, 59);
-        const count = logs
-          .filter(l => l.timestamp >= monthStart.getTime() && l.timestamp <= monthEnd.getTime())
-          .reduce((acc, l) => acc + (l.quantity || 1), 0);
-        return {
-          name: monthStart.toLocaleDateString([], { month: 'short' }),
-          eggs: count
-        };
-      });
-    }
 
     return { 
       activeTotal, 
       totalEggs, 
       avgWeight, 
-      chartData, 
       rankings, 
-      diffPercent 
+      totalExp,
+      totalRev,
+      netProfit,
+      costPerEgg,
+      pieData
     };
-  }, [logs, timeRange]);
+  }, [logs, expenses, timeRange, eggPrice]);
 
   const handleDeleteLog = async () => {
     if (!logToDeleteId) return;
@@ -207,9 +180,24 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, onRefresh }
   return (
     <div className="p-10 pb-44 min-h-full bg-[#F9F5F0] scroll-native overflow-y-auto">
       <header className="mb-10 flex flex-col gap-6">
-        <div>
-          <h1 className="text-4xl font-extrabold text-[#2D2D2D] tracking-tighter font-serif">产蛋实验室</h1>
-          <p className="text-[#A0A0A0] text-[10px] mt-2 uppercase tracking-[0.4em] font-semibold cn-relaxed opacity-60">历史与分析</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-4xl font-extrabold text-[#2D2D2D] tracking-tighter font-serif">产蛋实验室</h1>
+            <p className="text-[#A0A0A0] text-[10px] mt-2 uppercase tracking-[0.4em] font-semibold cn-relaxed opacity-60">历史与分析</p>
+          </div>
+          <div className="bg-white/50 border border-[#E5D3C5]/20 p-4 rounded-3xl flex flex-col items-end">
+            <span className="text-[8px] font-bold text-[#A0A0A0] uppercase tracking-widest mb-1">单蛋定价</span>
+            <div className="flex items-center gap-1">
+              <span className="text-sm font-bold text-[#D48C45]">¥</span>
+              <input 
+                type="number" 
+                step="0.1" 
+                value={eggPrice} 
+                onChange={(e) => setEggPrice(Number(e.target.value))}
+                className="w-12 bg-transparent outline-none font-bold text-lg text-[#2D2D2D] tabular-nums"
+              />
+            </div>
+          </div>
         </div>
 
         <div className="bg-white p-1.5 rounded-[24px] border border-[#E5D3C5]/20 shadow-[0_4px_20px_rgba(45,45,45,0.02)] flex relative overflow-hidden">
@@ -238,12 +226,71 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, onRefresh }
         </div>
       </header>
 
+      {/* Financial Summary Card */}
+      <div className="bg-white p-10 rounded-[48px] border border-[#E5D3C5]/20 shadow-xl mb-8 relative overflow-hidden">
+        <div className="flex items-center gap-3 mb-10">
+          <div className="w-10 h-10 bg-green-50 rounded-2xl flex items-center justify-center text-green-600">
+            <Coins size={20} />
+          </div>
+          <span className="text-[11px] font-bold text-[#2D2D2D] uppercase tracking-wider cn-relaxed">财务简报 (估算)</span>
+        </div>
+
+        <div className="grid grid-cols-2 gap-8 mb-10">
+          <div>
+            <span className="text-[10px] font-bold text-[#A0A0A0] uppercase tracking-wider block mb-2">总支出</span>
+            <div className="text-3xl font-bold text-red-500 tabular-nums">¥{stats.totalExp.toFixed(1)}</div>
+          </div>
+          <div>
+            <span className="text-[10px] font-bold text-[#A0A0A0] uppercase tracking-wider block mb-2">总估值</span>
+            <div className="text-3xl font-bold text-green-600 tabular-nums">¥{stats.totalRev.toFixed(1)}</div>
+          </div>
+          <div>
+            <span className="text-[10px] font-bold text-[#A0A0A0] uppercase tracking-wider block mb-2">净利润</span>
+            <div className={`text-3xl font-bold tabular-nums ${stats.netProfit >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+              ¥{stats.netProfit.toFixed(1)}
+            </div>
+          </div>
+          <div>
+            <span className="text-[10px] font-bold text-[#A0A0A0] uppercase tracking-wider block mb-2">单枚成本</span>
+            <div className="text-3xl font-bold text-[#2D2D2D] tabular-nums">¥{stats.costPerEgg}</div>
+          </div>
+        </div>
+
+        {stats.pieData.length > 0 && (
+          <div className="h-48 w-full mt-4 flex items-center justify-center relative">
+             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                <span className="text-[8px] font-bold text-[#A0A0A0] uppercase tracking-widest">支出构成</span>
+                <ReceiptText size={16} className="text-[#D48C45] opacity-20 mt-1" />
+             </div>
+             <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={stats.pieData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={80}
+                    paddingAngle={5}
+                    dataKey="value"
+                  >
+                    {stats.pieData.map((_, index) => (
+                      <Cell key={`cell-${index}`} fill={['#D48C45', '#E5D3C5', '#C2974D', '#2D2D2D'][index % 4]} />
+                    ))}
+                  </Pie>
+                  <Tooltip 
+                    contentStyle={{ borderRadius: '24px', border: 'none', boxShadow: '0 10px 30px rgba(0,0,0,0.1)', fontSize: '10px', fontWeight: 'bold' }}
+                  />
+                </PieChart>
+             </ResponsiveContainer>
+          </div>
+        )}
+      </div>
+
+      {/* Production Card */}
       <div className="bg-white p-10 rounded-[48px] border border-[#E5D3C5]/20 shadow-[0_30px_70px_rgba(45,45,45,0.04)] mb-8 relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-32 h-32 bg-[#D48C45]/5 rounded-full -translate-y-12 translate-x-12" />
-        
         <div className="flex items-center gap-3 mb-8">
           <div className="w-10 h-10 bg-[#D48C45]/10 rounded-2xl flex items-center justify-center text-[#D48C45]">
-            {timeRange === 'month' ? <CalendarDays size={20} /> : <CalendarRange size={20} />}
+            <CalendarDays size={20} />
           </div>
           <span className="text-[11px] font-bold text-[#D48C45] uppercase tracking-wider cn-relaxed">
             {timeRange === 'month' ? '月度产量' : '年度产量'}
@@ -259,14 +306,6 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, onRefresh }
               {timeRange === 'month' ? '本月共计' : '本年共计'}
             </p>
           </div>
-          {stats.diffPercent !== null && (
-            <div className={`flex items-center gap-1.5 px-4 py-2 rounded-full font-bold text-[10px] uppercase tracking-wider ${
-              stats.diffPercent >= 0 ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'
-            }`}>
-              {stats.diffPercent >= 0 ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
-              {Math.abs(stats.diffPercent)}%
-            </div>
-          )}
         </div>
 
         <div className="h-[2px] w-full bg-[#F9F5F0] mb-8" />
@@ -322,52 +361,6 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, onRefresh }
         )}
       </div>
 
-      <div className="bg-white p-10 rounded-[48px] border border-[#E5D3C5]/20 shadow-[0_30px_70px_rgba(45,45,45,0.04)] mb-12 overflow-hidden">
-        <div className="flex items-center justify-between mb-12">
-          <span className="text-[11px] font-bold text-[#A0A0A0] uppercase tracking-wider cn-relaxed">
-            {timeRange === 'month' ? '14天产量趋势' : '年度分布情况'}
-          </span>
-          <TrendingUp size={18} className="text-[#D48C45] opacity-50" />
-        </div>
-        <div className="h-48 w-full -ml-4">
-          <ResponsiveContainer width="100%" height="100%">
-            {timeRange === 'month' ? (
-              <AreaChart data={stats.chartData}>
-                <defs>
-                  <linearGradient id="farmTrend" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#D48C45" stopOpacity={0.2}/>
-                    <stop offset="95%" stopColor="#D48C45" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#F9F5F0" />
-                <XAxis dataKey="name" fontSize={10} axisLine={false} tickLine={false} tick={{ fill: '#A0A0A0', fontWeight: 600 }} />
-                <YAxis hide />
-                <Tooltip 
-                  cursor={{ stroke: '#D48C45', strokeWidth: 1, strokeDasharray: '5 5' }}
-                  contentStyle={{ borderRadius: '24px', border: 'none', boxShadow: '0 15px 45px rgba(45,45,45,0.1)', backgroundColor: '#FFFFFF', padding: '16px' }} 
-                />
-                <Area type="monotone" dataKey="eggs" stroke="#D48C45" strokeWidth={4} fillOpacity={1} fill="url(#farmTrend)" />
-              </AreaChart>
-            ) : (
-              <BarChart data={stats.chartData} barSize={12}>
-                <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#F9F5F0" />
-                <XAxis dataKey="name" fontSize={10} axisLine={false} tickLine={false} tick={{ fill: '#A0A0A0', fontWeight: 600 }} />
-                <YAxis hide />
-                <Tooltip 
-                  cursor={{ fill: 'transparent' }}
-                  contentStyle={{ borderRadius: '24px', border: 'none', boxShadow: '0 15px 45px rgba(45,45,45,0.1)', backgroundColor: '#FFFFFF', padding: '16px' }} 
-                />
-                <Bar dataKey="eggs" radius={[6, 6, 0, 0]}>
-                  {stats.chartData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={index === new Date().getMonth() ? '#D48C45' : '#E5D3C5'} />
-                  ))}
-                </Bar>
-              </BarChart>
-            )}
-          </ResponsiveContainer>
-        </div>
-      </div>
-
       <div className="mb-8 flex items-center justify-between px-2">
         <p className="text-[#A0A0A0] text-[11px] uppercase tracking-wider font-bold flex items-center gap-2 cn-relaxed">
            <ListFilter size={14} /> 产蛋日志
@@ -385,7 +378,7 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, onRefresh }
       <div className="mb-20">
         <AnimatePresence initial={false}>
           {logs.length === 0 ? (
-            <div className="text-center py-24 bg-white/40 rounded-[48px] border border-dashed border-[#E5D3C5]/40 text-[#A0A0A0] italic text-sm font-medium cn-relaxed">
+            <div className="text-center py-24 bg-white/40 rounded-[48px] border border-dashed border-[#E5D3C5]/40 text-[#A0A0A0] text-sm font-medium cn-relaxed">
               日志目前为空。
             </div>
           ) : (

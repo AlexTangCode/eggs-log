@@ -1,7 +1,7 @@
 
 import { initializeApp } from 'firebase/app';
 import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc, query, orderBy, writeBatch, where, Timestamp } from 'firebase/firestore';
-import { Hen, EggLog } from '../types';
+import { Hen, EggLog, Expense } from '../types';
 
 const firebaseConfig = {
   apiKey: "AIzaSyAB5f3D3IDRN7UYf7SvMp5YEjdVGG2Zuz4",
@@ -18,6 +18,7 @@ export const db = getFirestore(app);
 // Helper functions
 export const hensRef = collection(db, 'hens');
 export const eggLogsRef = collection(db, 'egg_logs');
+export const expensesRef = collection(db, 'expenses');
 
 /**
  * Fetch all hens, strictly mapping Document ID.
@@ -29,7 +30,7 @@ export const getHens = async (): Promise<Hen[]> => {
     const createdAt = data.createdAt instanceof Timestamp ? data.createdAt.toMillis() : (data.createdAt || Date.now());
     
     return {
-      id: docSnapshot.id, // Explicit ID mapping
+      id: docSnapshot.id,
       name: data.name || 'Unnamed Hen',
       breed: data.breed || 'Heritage',
       age: data.age || '1',
@@ -40,8 +41,7 @@ export const getHens = async (): Promise<Hen[]> => {
 };
 
 /**
- * Fetch all egg logs, strictly mapping Document ID.
- * Added defensive checks to ensure types are consistent for CRUD.
+ * Fetch all egg logs.
  */
 export const getEggLogs = async (): Promise<EggLog[]> => {
   const snapshot = await getDocs(query(eggLogsRef, orderBy('timestamp', 'desc')));
@@ -50,7 +50,7 @@ export const getEggLogs = async (): Promise<EggLog[]> => {
     const timestamp = data.timestamp instanceof Timestamp ? data.timestamp.toMillis() : (Number(data.timestamp) || Date.now());
 
     return {
-      id: docSnapshot.id, // THE CRITICAL LINK: Capturing the document ID
+      id: docSnapshot.id,
       henId: data.henId || '',
       henName: data.henName || 'Unknown Hen',
       weight: Number(data.weight) || 0,
@@ -58,6 +58,31 @@ export const getEggLogs = async (): Promise<EggLog[]> => {
       timestamp: timestamp,
     };
   });
+};
+
+/**
+ * Fetch all expenses.
+ */
+export const getExpenses = async (): Promise<Expense[]> => {
+  const snapshot = await getDocs(query(expensesRef, orderBy('timestamp', 'desc')));
+  return snapshot.docs.map(docSnapshot => {
+    const data = docSnapshot.data();
+    return {
+      id: docSnapshot.id,
+      category: data.category,
+      amount: Number(data.amount) || 0,
+      date: data.date,
+      timestamp: data.timestamp || Date.now(),
+    };
+  });
+};
+
+export const addExpense = async (data: Omit<Expense, 'id'>) => {
+  return await addDoc(expensesRef, data);
+};
+
+export const deleteExpense = async (id: string) => {
+  await deleteDoc(doc(db, 'expenses', id));
 };
 
 export const updateHen = async (id: string, data: { name: string, age: string | number, color: string, breed: string }) => {
@@ -82,42 +107,13 @@ export const deleteEggLog = async (id: string) => {
   await deleteDoc(logDoc);
 };
 
-/**
- * Clean legacy data: Identifies records with potentially corrupted metadata
- * and ensures they are properly formatted or removed.
- */
-export const cleanupLegacyData = async () => {
-  const logsSnap = await getDocs(eggLogsRef);
-  const batch = writeBatch(db);
-  let count = 0;
-  
-  logsSnap.docs.forEach(d => {
-    const data = d.data();
-    // If essential fields are missing, mark for deletion or fix
-    if (!data.henId || !data.weight) {
-      batch.delete(d.ref);
-      count++;
-    }
-  });
-  
-  if (count > 0) await batch.commit();
-  return count;
-};
-
-export const resetAllData = async () => {
-  const batch = writeBatch(db);
-  const hensSnap = await getDocs(hensRef);
-  hensSnap.docs.forEach(d => batch.delete(d.ref));
-  const logsSnap = await getDocs(eggLogsRef);
-  logsSnap.docs.forEach(d => batch.delete(d.ref));
-  await batch.commit();
-};
-
-// Added clearAllEggLogs to specifically remove all egg production records
+// Added clearAllEggLogs to fix export error in HistoryView.tsx
 export const clearAllEggLogs = async () => {
+  const snapshot = await getDocs(eggLogsRef);
   const batch = writeBatch(db);
-  const logsSnap = await getDocs(eggLogsRef);
-  logsSnap.docs.forEach(d => batch.delete(d.ref));
+  snapshot.docs.forEach(docSnap => {
+    batch.delete(docSnap.ref);
+  });
   await batch.commit();
 };
 

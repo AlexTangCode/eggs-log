@@ -18,9 +18,25 @@ export interface EggLog {
   timestamp: number;
 }
 
+export enum ExpenseCategory {
+  FEED = '饲料',
+  MEDS = '药品',
+  EQUIPMENT = '设备',
+  OTHERS = '其他'
+}
+
+export interface Expense {
+  id: string;
+  category: ExpenseCategory;
+  amount: number;
+  date: string;
+  timestamp: number;
+}
+
 export enum View {
   HOME = 'home',
   STATISTICS = 'statistics',
+  FINANCE = 'finance',
   HEALTH = 'health',
   HENS = 'hens'
 }

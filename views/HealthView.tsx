@@ -103,7 +103,8 @@ const HealthView: React.FC<HealthViewProps> = ({ hens, logs }) => {
           <motion.div 
             key={hen.id} 
             className="bg-white p-7 rounded-[32px] border border-[#E5D3C5]/20 shadow-[0_20px_45px_rgba(45,45,45,0.02)] relative overflow-hidden group"
-            whileHover={{ y: -6, shadow: "0 30px 60px rgba(45,45,45,0.05)" }}
+            // Fixed: changed 'shadow' to 'boxShadow' to fix Framer Motion error
+            whileHover={{ y: -6, boxShadow: "0 30px 60px rgba(45,45,45,0.05)" }}
           >
             <div className={`absolute top-0 right-0 w-2.5 h-full ${
               status === 'Optimal' ? 'bg-[#D48C45]' : status === 'Observation' ? 'bg-[#C2974D]' : 'bg-[#B66649]'

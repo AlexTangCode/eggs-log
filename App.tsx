@@ -1,19 +1,21 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { View, Hen, EggLog } from './types';
-import { getHens, getEggLogs } from './services/firebase';
+import { View, Hen, EggLog, Expense } from './types';
+import { getHens, getEggLogs, getExpenses } from './services/firebase';
 import Navigation from './components/Navigation';
 import HomeView from './views/HomeView';
 import StatisticsView from './views/StatisticsView';
 import HealthView from './views/HealthView';
 import HensView from './views/HensView';
+import FinanceView from './views/FinanceView';
 import { CheckCircle, Info } from 'lucide-react';
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<View>(View.HOME);
   const [hens, setHens] = useState<Hen[]>([]);
   const [logs, setLogs] = useState<EggLog[]>([]);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
   
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'info' } | null>(null);
@@ -25,12 +27,14 @@ const App: React.FC = () => {
 
   const refreshData = async () => {
     try {
-      const [fetchedHens, fetchedLogs] = await Promise.all([
+      const [fetchedHens, fetchedLogs, fetchedExpenses] = await Promise.all([
         getHens(),
-        getEggLogs()
+        getEggLogs(),
+        getExpenses()
       ]);
       setHens(fetchedHens as Hen[]);
       setLogs(fetchedLogs as EggLog[]);
+      setExpenses(fetchedExpenses as Expense[]);
     } catch (error) {
       console.error("Error refreshing data:", error);
     } finally {
@@ -71,7 +75,9 @@ const App: React.FC = () => {
               case View.HOME:
                 return <HomeView hens={hens} logs={logs} onRefresh={refreshData} />;
               case View.STATISTICS:
-                return <StatisticsView hens={hens} logs={logs} onRefresh={refreshData} />;
+                return <StatisticsView hens={hens} logs={logs} expenses={expenses} onRefresh={refreshData} />;
+              case View.FINANCE:
+                return <FinanceView expenses={expenses} onRefresh={refreshData} onNotify={showNotification} />;
               case View.HEALTH:
                 return <HealthView hens={hens} logs={logs} />;
               case View.HENS:
@@ -86,7 +92,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="max-w-md mx-auto h-screen bg-[#F9F5F0] flex flex-col relative overflow-hidden shadow-[0_0_80px_rgba(45,45,45,0.08)] font-['Quicksand'] selection:bg-[#D48C45]/20">
+    <div className="max-w-md mx-auto h-screen bg-[#F9F5F0] flex flex-col relative overflow-hidden shadow-[0_0_80px_rgba(45,45,45,0.08)] selection:bg-[#D48C45]/20">
       <main className="flex-1 overflow-y-auto pb-32">
         {renderView()}
       </main>
