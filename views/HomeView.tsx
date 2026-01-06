@@ -29,7 +29,8 @@ const HenHeroItem: React.FC<{
   isSquishing: boolean;
   dustParticles: MagicDust[];
   size?: number;
-}> = ({ hen, onTap, isLaying, isSquishing, dustParticles, size = 140 }) => {
+  totalEggs: number;
+}> = ({ hen, onTap, isLaying, isSquishing, dustParticles, size = 140, totalEggs }) => {
   return (
     <div className="relative flex flex-col items-center flex-shrink-0 select-none pb-12 w-[160px] h-full justify-center">
       <div className="relative">
@@ -105,8 +106,8 @@ const HenHeroItem: React.FC<{
         <h3 className="text-xl font-bold text-[#2D2D2D] tracking-tight leading-tight truncate w-[140px] cn-relaxed">
           {hen.name}
         </h3>
-        <span className="text-[9px] font-semibold uppercase tracking-[0.1em] text-[#D48C45] bg-[#D48C45]/10 px-3 py-1 rounded-full inline-block mt-2">
-          {hen.breed}
+        <span className="text-[9px] font-semibold uppercase tracking-[0.1em] text-[#D48C45] bg-[#D48C45]/10 px-3 py-1 rounded-full inline-block mt-2 cn-relaxed">
+          累计下蛋: {totalEggs} 枚
         </span>
       </motion.div>
     </div>
@@ -129,6 +130,15 @@ const HomeView: React.FC<HomeViewProps> = ({ hens, logs, onRefresh, onNotify, on
   const [isDragging, setIsDragging] = useState(false);
   const [startX, setStartX] = useState(0);
   const [scrollLeft, setScrollLeft] = useState(0);
+
+  // Map to store cumulative egg counts for each hen
+  const henTotals = useMemo(() => {
+    const totals: Record<string, number> = {};
+    logs.forEach(log => {
+      totals[log.henId] = (totals[log.henId] || 0) + (log.quantity || 1);
+    });
+    return totals;
+  }, [logs]);
 
   const stats = useMemo(() => {
     const now = new Date();
@@ -289,6 +299,7 @@ const HomeView: React.FC<HomeViewProps> = ({ hens, logs, onRefresh, onNotify, on
                     isSquishing={isSquishingId === hen.id}
                     dustParticles={isLayingId === hen.id ? dustParticles : []}
                     size={HEN_DISPLAY_SIZE}
+                    totalEggs={henTotals[hen.id] || 0}
                   />
                 ))}
                 {hens.length > 2 && <div className="w-12 flex-shrink-0" />}

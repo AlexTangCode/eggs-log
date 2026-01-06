@@ -1,12 +1,12 @@
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, BarChart, Bar, Cell, PieChart, Pie } from 'recharts';
 import { Hen, EggLog, Expense, ExpenseCategory } from '../types';
 import { 
   Scale, Egg, TrendingUp, Edit3, Trash2, X, Clock, ListFilter, Hash, 
   CheckCircle, AlertTriangle, Trophy, CalendarDays, Coins, 
-  ReceiptText, ChevronLeft, ChevronRight, Save
+  ReceiptText, ChevronLeft, ChevronRight, Save, Loader2
 } from 'lucide-react';
 import { 
   deleteEggLog, updateEggLogDetailed, getGlobalSettings, updateGlobalSettings 
@@ -90,20 +90,22 @@ const LogItem: React.FC<{
 };
 
 const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, expenses, onRefresh }) => {
-  const [timeRange, setTimeRange] = useState<'week' | 'month' | 'all'>('week');
-  const [offset, setOffset] = useState(0); // Navigation offset
+  const [timeRange, setTimeRange] = useState<'month' | 'year' | 'all'>('month');
+  const [offset, setOffset] = useState(0); 
   
   const [editingLog, setEditingLog] = useState<EggLog | null>(null);
   const [logToDeleteId, setLogToDeleteId] = useState<string | null>(null);
   const [showFullHistory, setShowFullHistory] = useState(false);
   
   const [eggPrice, setEggPrice] = useState(1.5);
-  const [isSavingPrice, setIsSavingPrice] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   
   const [editWeight, setEditWeight] = useState<number>(0);
   const [editQuantity, setEditQuantity] = useState<number>(1);
   const [editDate, setEditDate] = useState<string>('');
   const [editTime, setEditTime] = useState<string>('');
+
+  const debounceTimeout = useRef<NodeJS.Timeout | null>(null);
 
   // Initial load of global settings
   useEffect(() => {
@@ -114,15 +116,23 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, expenses, o
     });
   }, []);
 
-  const savePrice = async () => {
-    setIsSavingPrice(true);
-    try {
-      await updateGlobalSettings({ eggPrice });
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setIsSavingPrice(false);
-    }
+  // Auto-save logic for eggPrice
+  const handlePriceChange = (newPrice: number) => {
+    setEggPrice(newPrice);
+    setSaveStatus('saving');
+    
+    if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
+    
+    debounceTimeout.current = setTimeout(async () => {
+      try {
+        await updateGlobalSettings({ eggPrice: newPrice });
+        setSaveStatus('saved');
+        setTimeout(() => setSaveStatus('idle'), 2000);
+      } catch (e) {
+        console.error("Auto-save failed", e);
+        setSaveStatus('idle');
+      }
+    }, 800);
   };
 
   const periodLabel = useMemo(() => {
@@ -133,12 +143,8 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, expenses, o
       d.setMonth(d.getMonth() + offset);
       return d.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long' });
     } else {
-      // Weekly logic: Get start of current week, add offset * 7 days
-      const currentDay = d.getDay() === 0 ? 7 : d.getDay();
-      d.setDate(d.getDate() - (currentDay - 1) + (offset * 7));
-      const end = new Date(d);
-      end.setDate(end.getDate() + 6);
-      return `${d.toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' })} - ${end.toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' })}`;
+      d.setFullYear(d.getFullYear() + offset);
+      return `${d.getFullYear()} 年度`;
     }
   }, [timeRange, offset]);
 
@@ -157,11 +163,12 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, expenses, o
       end.setDate(1);
       end.setHours(0, 0, 0, 0);
     } else {
-      const currentDay = start.getDay() === 0 ? 7 : start.getDay();
-      start.setDate(start.getDate() - (currentDay - 1) + (offset * 7));
+      start.setFullYear(start.getFullYear() + offset);
+      start.setMonth(0, 1);
       start.setHours(0, 0, 0, 0);
       
-      end.setDate(start.getDate() + 7);
+      end.setFullYear(start.getFullYear() + 1);
+      end.setMonth(0, 1);
       end.setHours(0, 0, 0, 0);
     }
     
@@ -249,8 +256,8 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, expenses, o
 
   const getRangeBgStyle = () => {
     switch (timeRange) {
-      case 'week': return { left: '6px', width: 'calc(33.33% - 6px)' };
-      case 'month': return { left: '33.33%', width: '33.33%' };
+      case 'month': return { left: '6px', width: 'calc(33.33% - 6px)' };
+      case 'year': return { left: '33.33%', width: '33.33%' };
       case 'all': return { left: '66.66%', width: 'calc(33.33% - 6px)' };
       default: return { left: '6px', width: 'calc(33.33% - 6px)' };
     }
@@ -265,22 +272,20 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, expenses, o
             <p className="text-[#A0A0A0] text-[10px] mt-2 uppercase tracking-[0.4em] font-semibold cn-relaxed opacity-60">数据透视</p>
           </div>
           <div className="bg-white p-4 rounded-3xl border border-[#E5D3C5]/20 flex flex-col items-end shadow-sm">
-            <span className="text-[8px] font-bold text-[#A0A0A0] uppercase tracking-widest mb-1">单个蛋价 ($)</span>
-            <div className="flex items-center gap-2">
+            <span className="text-[8px] font-bold text-[#A0A0A0] uppercase tracking-widest mb-1 flex items-center gap-1">
+              单个蛋价 ($) 
+              {saveStatus === 'saving' && <Loader2 size={8} className="animate-spin text-[#D48C45]" />}
+              {saveStatus === 'saved' && <CheckCircle size={8} className="text-green-500" />}
+            </span>
+            <div className="flex items-center gap-1">
+              <span className="text-sm font-bold text-[#D48C45]">$</span>
               <input 
                 type="number" 
                 step="0.1" 
                 value={eggPrice} 
-                onChange={(e) => setEggPrice(Number(e.target.value))}
-                className="w-10 bg-transparent outline-none font-bold text-lg text-[#2D2D2D] tabular-nums text-right"
+                onChange={(e) => handlePriceChange(Number(e.target.value))}
+                className="w-12 bg-transparent outline-none font-bold text-lg text-[#2D2D2D] tabular-nums text-right"
               />
-              <button 
-                onClick={savePrice}
-                disabled={isSavingPrice}
-                className={`p-1.5 rounded-lg transition-colors ${isSavingPrice ? 'text-[#D48C45] animate-pulse' : 'text-[#A0A0A0] hover:text-[#D48C45]'}`}
-              >
-                <Save size={16} />
-              </button>
             </div>
           </div>
         </div>
@@ -294,16 +299,16 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, expenses, o
             transition={{ type: "spring", stiffness: 400, damping: 30 }}
           />
           <button 
-            onClick={() => { setTimeRange('week'); setOffset(0); }}
-            className={`flex-1 py-3 text-[11px] font-bold uppercase tracking-wider relative z-10 transition-colors cn-relaxed ${timeRange === 'week' ? 'text-white' : 'text-[#A0A0A0]'}`}
-          >
-            周度
-          </button>
-          <button 
             onClick={() => { setTimeRange('month'); setOffset(0); }}
             className={`flex-1 py-3 text-[11px] font-bold uppercase tracking-wider relative z-10 transition-colors cn-relaxed ${timeRange === 'month' ? 'text-white' : 'text-[#A0A0A0]'}`}
           >
             月度
+          </button>
+          <button 
+            onClick={() => { setTimeRange('year'); setOffset(0); }}
+            className={`flex-1 py-3 text-[11px] font-bold uppercase tracking-wider relative z-10 transition-colors cn-relaxed ${timeRange === 'year' ? 'text-white' : 'text-[#A0A0A0]'}`}
+          >
+            年度
           </button>
           <button 
             onClick={() => { setTimeRange('all'); setOffset(0); }}
@@ -333,7 +338,7 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, expenses, o
             <Coins size={20} />
           </div>
           <span className="text-[11px] font-bold text-[#2D2D2D] uppercase tracking-wider cn-relaxed">
-            财务概览
+            财务概览 ({timeRange === 'all' ? '终身' : periodLabel})
           </span>
         </div>
 
@@ -502,7 +507,6 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, expenses, o
         </AnimatePresence>
       </div>
 
-      {/* Delete Confirmation */}
       <AnimatePresence>
         {logToDeleteId && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[500] bg-[#2D2D2D]/20 backdrop-blur-3xl flex items-center justify-center p-8">
@@ -519,7 +523,6 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, expenses, o
         )}
       </AnimatePresence>
 
-      {/* Edit Modal */}
       <AnimatePresence>
         {editingLog && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[400] bg-[#2D2D2D]/20 backdrop-blur-3xl flex items-center justify-center p-8">
