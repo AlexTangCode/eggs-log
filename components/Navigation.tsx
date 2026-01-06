@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Home, BarChart3, Activity, Users, Wallet } from 'lucide-react';
+import { Home, BarChart3, Wallet, Users } from 'lucide-react';
 import { View } from '../types';
 import { motion } from 'framer-motion';
 
@@ -13,8 +13,7 @@ const Navigation: React.FC<NavigationProps> = ({ currentView, onViewChange }) =>
   const tabs = [
     { id: View.HOME, label: '首页', icon: Home },
     { id: View.STATISTICS, label: '统计', icon: BarChart3 },
-    { id: View.FINANCE, label: '账目', icon: Wallet },
-    { id: View.HEALTH, label: '健康', icon: Activity },
+    { id: View.FINANCE, label: '支出', icon: Wallet },
     { id: View.HENS, label: '鸡群', icon: Users },
   ];
 
@@ -28,7 +27,7 @@ const Navigation: React.FC<NavigationProps> = ({ currentView, onViewChange }) =>
             <button
               key={tab.id}
               onClick={() => onViewChange(tab.id)}
-              className="flex flex-col items-center justify-center relative flex-1 h-16 min-w-[50px] transition-transform active:scale-90"
+              className="flex flex-col items-center justify-center relative flex-1 h-16 transition-transform active:scale-90"
             >
               {isActive && (
                 <motion.div 

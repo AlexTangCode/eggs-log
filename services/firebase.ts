@@ -81,6 +81,12 @@ export const addExpense = async (data: Omit<Expense, 'id'>) => {
   return await addDoc(expensesRef, data);
 };
 
+export const updateExpense = async (id: string, data: Partial<Omit<Expense, 'id'>>) => {
+  if (!id) throw new Error("Missing ID for updateExpense");
+  const expenseDoc = doc(db, 'expenses', id);
+  await updateDoc(expenseDoc, data);
+};
+
 export const deleteExpense = async (id: string) => {
   await deleteDoc(doc(db, 'expenses', id));
 };

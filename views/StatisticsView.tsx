@@ -84,11 +84,11 @@ const LogItem: React.FC<{
 };
 
 const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, expenses, onRefresh }) => {
-  const [timeRange, setTimeRange] = useState<'month' | 'year'>('month');
+  const [timeRange, setTimeRange] = useState<'month' | 'year' | 'all'>('month');
   const [editingLog, setEditingLog] = useState<EggLog | null>(null);
   const [logToDeleteId, setLogToDeleteId] = useState<string | null>(null);
   const [showFullHistory, setShowFullHistory] = useState(false);
-  const [eggPrice, setEggPrice] = useState(1.5); // Default price ¥1.5
+  const [eggPrice, setEggPrice] = useState(1.5); // Default price $1.5
   
   const [editWeight, setEditWeight] = useState<number>(0);
   const [editQuantity, setEditQuantity] = useState<number>(1);
@@ -103,15 +103,24 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, expenses, o
     const startOfCurrentMonth = new Date(currentYear, currentMonth, 1).getTime();
     const startOfCurrentYear = new Date(currentYear, 0, 1).getTime();
 
-    const activeLogs = logs.filter(l => l.timestamp >= (timeRange === 'month' ? startOfCurrentMonth : startOfCurrentYear));
-    const activeExpenses = expenses.filter(e => e.timestamp >= (timeRange === 'month' ? startOfCurrentMonth : startOfCurrentYear));
+    let activeLogs = logs;
+    let activeExpenses = expenses;
+
+    if (timeRange === 'month') {
+      activeLogs = logs.filter(l => l.timestamp >= startOfCurrentMonth);
+      activeExpenses = expenses.filter(e => e.timestamp >= startOfCurrentMonth);
+    } else if (timeRange === 'year') {
+      activeLogs = logs.filter(l => l.timestamp >= startOfCurrentYear);
+      activeExpenses = expenses.filter(e => e.timestamp >= startOfCurrentYear);
+    }
+    // 'all' uses all logs and expenses without filtering
     
     const activeTotal: number = activeLogs.reduce((acc: number, l) => acc + (l.quantity || 1), 0);
     const totalEggs: number = logs.reduce((acc: number, l) => acc + (l.quantity || 1), 0);
     const totalWeight: number = logs.reduce((acc: number, l: EggLog) => acc + (Number(l.weight) * (Number(l.quantity) || 1)), 0);
     const avgWeight = totalEggs > 0 ? Math.round(totalWeight / totalEggs) : 0;
 
-    // Financial calculations
+    // Financial calculations based on selected active range
     const totalExp = activeExpenses.reduce((acc, e) => acc + e.amount, 0);
     const totalRev = activeTotal * eggPrice;
     const netProfit = totalRev - totalExp;
@@ -177,6 +186,15 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, expenses, o
 
   const displayedLogs = showFullHistory ? logs : logs.slice(0, 10);
 
+  const getRangeBgStyle = () => {
+    switch (timeRange) {
+      case 'month': return { left: '6px', width: 'calc(33.33% - 6px)' };
+      case 'year': return { left: '33.33%', width: '33.33%' };
+      case 'all': return { left: '66.66%', width: 'calc(33.33% - 6px)' };
+      default: return { left: '6px', width: 'calc(33.33% - 6px)' };
+    }
+  };
+
   return (
     <div className="p-10 pb-44 min-h-full bg-[#F9F5F0] scroll-native overflow-y-auto">
       <header className="mb-10 flex flex-col gap-6">
@@ -188,7 +206,7 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, expenses, o
           <div className="bg-white/50 border border-[#E5D3C5]/20 p-4 rounded-3xl flex flex-col items-end">
             <span className="text-[8px] font-bold text-[#A0A0A0] uppercase tracking-widest mb-1">单蛋定价</span>
             <div className="flex items-center gap-1">
-              <span className="text-sm font-bold text-[#D48C45]">¥</span>
+              <span className="text-sm font-bold text-[#D48C45]">$</span>
               <input 
                 type="number" 
                 step="0.1" 
@@ -200,15 +218,12 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, expenses, o
           </div>
         </div>
 
-        <div className="bg-white p-1.5 rounded-[24px] border border-[#E5D3C5]/20 shadow-[0_4px_20px_rgba(45,45,45,0.02)] flex relative overflow-hidden">
+        <div className="bg-white p-1.5 rounded-[24px] border border-[#E5D3C5]/20 shadow-[0_4px_20px_rgba(45,45,45,0.02)] flex relative overflow-hidden h-14">
           <motion.div 
             layoutId="range-bg"
             className="absolute top-1.5 bottom-1.5 bg-[#D48C45] rounded-[18px]"
             initial={false}
-            animate={{ 
-              left: timeRange === 'month' ? '6px' : '50%',
-              right: timeRange === 'month' ? '50%' : '6px'
-            }}
+            animate={getRangeBgStyle()}
             transition={{ type: "spring", stiffness: 400, damping: 30 }}
           />
           <button 
@@ -223,6 +238,12 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, expenses, o
           >
             年度
           </button>
+          <button 
+            onClick={() => setTimeRange('all')}
+            className={`flex-1 py-3 text-[11px] font-bold uppercase tracking-wider relative z-10 transition-colors cn-relaxed ${timeRange === 'all' ? 'text-white' : 'text-[#A0A0A0]'}`}
+          >
+            所有时间
+          </button>
         </div>
       </header>
 
@@ -232,27 +253,29 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, expenses, o
           <div className="w-10 h-10 bg-green-50 rounded-2xl flex items-center justify-center text-green-600">
             <Coins size={20} />
           </div>
-          <span className="text-[11px] font-bold text-[#2D2D2D] uppercase tracking-wider cn-relaxed">财务简报 (估算)</span>
+          <span className="text-[11px] font-bold text-[#2D2D2D] uppercase tracking-wider cn-relaxed">
+            财务简报 ({timeRange === 'all' ? '所有时间' : timeRange === 'year' ? '本年度' : '本月度'})
+          </span>
         </div>
 
         <div className="grid grid-cols-2 gap-8 mb-10">
           <div>
             <span className="text-[10px] font-bold text-[#A0A0A0] uppercase tracking-wider block mb-2">总支出</span>
-            <div className="text-3xl font-bold text-red-500 tabular-nums">¥{stats.totalExp.toFixed(1)}</div>
+            <div className="text-3xl font-bold text-red-500 tabular-nums">${stats.totalExp.toFixed(1)}</div>
           </div>
           <div>
             <span className="text-[10px] font-bold text-[#A0A0A0] uppercase tracking-wider block mb-2">总估值</span>
-            <div className="text-3xl font-bold text-green-600 tabular-nums">¥{stats.totalRev.toFixed(1)}</div>
+            <div className="text-3xl font-bold text-green-600 tabular-nums">${stats.totalRev.toFixed(1)}</div>
           </div>
           <div>
             <span className="text-[10px] font-bold text-[#A0A0A0] uppercase tracking-wider block mb-2">净利润</span>
             <div className={`text-3xl font-bold tabular-nums ${stats.netProfit >= 0 ? 'text-green-600' : 'text-red-500'}`}>
-              ¥{stats.netProfit.toFixed(1)}
+              ${stats.netProfit.toFixed(1)}
             </div>
           </div>
           <div>
             <span className="text-[10px] font-bold text-[#A0A0A0] uppercase tracking-wider block mb-2">单枚成本</span>
-            <div className="text-3xl font-bold text-[#2D2D2D] tabular-nums">¥{stats.costPerEgg}</div>
+            <div className="text-3xl font-bold text-[#2D2D2D] tabular-nums">${stats.costPerEgg}</div>
           </div>
         </div>
 
@@ -293,7 +316,7 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, expenses, o
             <CalendarDays size={20} />
           </div>
           <span className="text-[11px] font-bold text-[#D48C45] uppercase tracking-wider cn-relaxed">
-            {timeRange === 'month' ? '月度产量' : '年度产量'}
+            {timeRange === 'all' ? '累计产量' : timeRange === 'month' ? '月度产量' : '年度产量'}
           </span>
         </div>
 
@@ -303,7 +326,7 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, expenses, o
               {stats.activeTotal}
             </div>
             <p className="text-[#A0A0A0] text-[11px] font-semibold uppercase tracking-wider mt-3 cn-relaxed opacity-70">
-              {timeRange === 'month' ? '本月共计' : '本年共计'}
+              {timeRange === 'all' ? '所有记录总计' : timeRange === 'month' ? '本月共计' : '本年共计'}
             </p>
           </div>
         </div>
@@ -312,12 +335,12 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, expenses, o
 
         <div className="flex justify-around items-center">
           <div className="text-center">
-             <span className="text-[10px] font-bold text-[#A0A0A0] uppercase tracking-wider block mb-1 cn-relaxed">终身总计</span>
+             <span className="text-[10px] font-bold text-[#A0A0A0] uppercase tracking-wider block mb-1 cn-relaxed">历史总产量</span>
              <div className="text-xl font-bold text-[#2D2D2D] tabular-nums">{stats.totalEggs}</div>
           </div>
           <div className="w-[1px] h-8 bg-[#E5D3C5]/30" />
           <div className="text-center">
-             <span className="text-[10px] font-bold text-[#A0A0A0] uppercase tracking-wider block mb-1 cn-relaxed">平均重量</span>
+             <span className="text-[10px] font-bold text-[#A0A0A0] uppercase tracking-wider block mb-1 cn-relaxed">全期平均</span>
              <div className="text-xl font-bold text-[#2D2D2D] tabular-nums">{stats.avgWeight}克</div>
           </div>
         </div>
@@ -326,7 +349,7 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, expenses, o
       <div className="bg-white p-10 rounded-[48px] border border-[#E5D3C5]/20 shadow-[0_20px_50px_rgba(45,45,45,0.02)] mb-8">
         <div className="flex items-center justify-between mb-8">
           <span className="text-[11px] font-bold text-[#A0A0A0] uppercase tracking-wider flex items-center gap-2 cn-relaxed">
-            <Trophy size={14} className="text-[#D48C45]" /> {timeRange === 'month' ? '月度产蛋榜' : '年度产蛋榜'}
+            <Trophy size={14} className="text-[#D48C45]" /> {timeRange === 'all' ? '终身产蛋榜' : timeRange === 'month' ? '月度产蛋榜' : '年度产蛋榜'}
           </span>
         </div>
 
@@ -348,6 +371,7 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, expenses, o
                     <motion.div 
                       initial={{ width: 0 }}
                       animate={{ width: `${(hen.count / stats.rankings[0].count) * 100}%` }}
+                      // Fixed property 'base' to 'ease' for Framer Motion transition
                       transition={{ duration: 0.8, ease: "easeOut" }}
                       className="h-full bg-[#D48C45] rounded-full"
                     />

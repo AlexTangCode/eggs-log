@@ -6,7 +6,6 @@ export interface Hen {
   age: string | number;
   color: string;
   createdAt: number;
-  health_status?: 'Optimal' | 'Observation' | 'Critical';
 }
 
 export interface EggLog {
@@ -37,6 +36,5 @@ export enum View {
   HOME = 'home',
   STATISTICS = 'statistics',
   FINANCE = 'finance',
-  HEALTH = 'health',
   HENS = 'hens'
 }

@@ -6,9 +6,8 @@ import { getHens, getEggLogs, getExpenses } from './services/firebase';
 import Navigation from './components/Navigation';
 import HomeView from './views/HomeView';
 import StatisticsView from './views/StatisticsView';
-import HealthView from './views/HealthView';
-import HensView from './views/HensView';
 import FinanceView from './views/FinanceView';
+import HensView from './views/HensView';
 import { CheckCircle, Info } from 'lucide-react';
 
 const App: React.FC = () => {
@@ -73,17 +72,15 @@ const App: React.FC = () => {
           {(() => {
             switch (currentView) {
               case View.HOME:
-                return <HomeView hens={hens} logs={logs} onRefresh={refreshData} />;
+                return <HomeView hens={hens} logs={logs} onRefresh={refreshData} onNotify={showNotification} onNavigate={setCurrentView} />;
               case View.STATISTICS:
                 return <StatisticsView hens={hens} logs={logs} expenses={expenses} onRefresh={refreshData} />;
               case View.FINANCE:
                 return <FinanceView expenses={expenses} onRefresh={refreshData} onNotify={showNotification} />;
-              case View.HEALTH:
-                return <HealthView hens={hens} logs={logs} />;
               case View.HENS:
                 return <HensView hens={hens} onRefresh={refreshData} onNotify={showNotification} />;
               default:
-                return <HomeView hens={hens} logs={logs} onRefresh={refreshData} />;
+                return <HomeView hens={hens} logs={logs} onRefresh={refreshData} onNotify={showNotification} onNavigate={setCurrentView} />;
             }
           })()}
         </motion.div>

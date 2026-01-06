@@ -3,7 +3,7 @@ import React, { useState, useMemo, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Egg, Calendar, Scale, Hash, X, Check, TrendingUp, CalendarDays } from 'lucide-react';
 import { addDoc } from 'firebase/firestore';
-import { Hen, EggLog } from '../types';
+import { Hen, EggLog, View } from '../types';
 import { eggLogsRef } from '../services/firebase';
 import HenGraphic from '../components/HenGraphic';
 
@@ -11,6 +11,8 @@ interface HomeViewProps {
   hens: Hen[];
   logs: EggLog[];
   onRefresh: () => void;
+  onNotify: (message: string, type?: 'success' | 'info') => void;
+  onNavigate: (view: View) => void;
 }
 
 interface MagicDust {
@@ -111,7 +113,7 @@ const HenHeroItem: React.FC<{
   );
 };
 
-const HomeView: React.FC<HomeViewProps> = ({ hens, logs, onRefresh }) => {
+const HomeView: React.FC<HomeViewProps> = ({ hens, logs, onRefresh, onNotify, onNavigate }) => {
   const [isLayingId, setIsLayingId] = useState<string | null>(null);
   const [isSquishingId, setIsSquishingId] = useState<string | null>(null);
   const [dustParticles, setDustParticles] = useState<MagicDust[]>([]);
@@ -210,87 +212,91 @@ const HomeView: React.FC<HomeViewProps> = ({ hens, logs, onRefresh }) => {
     }, 450);
   };
 
-  if (hens.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full text-center px-10 bg-[#F9F5F0]">
-        <div className="bg-white/40 p-12 rounded-[50px] mb-10 shadow-sm border border-[#E5D3C5]/30">
-          <HenGraphic color="#E5D3C5" size={160} />
-        </div>
-        <h1 className="font-serif text-3xl font-extrabold text-[#2D2D2D] mb-4 tracking-tighter">Chloes Chicken</h1>
-        <p className="text-[#A0A0A0] text-sm mb-12 font-medium leading-relaxed cn-relaxed">鸡舍目前空空如也。请前往“鸡群”标签添加成员。</p>
-      </div>
-    );
-  }
-
   return (
     <div className="flex flex-col h-full bg-[#F9F5F0] relative overflow-hidden pt-safe">
       <header className="pt-10 pb-4 px-10 text-center relative z-20">
         <motion.h2
           initial={{ opacity: 0 }}
           animate={{ opacity: 0.6 }}
-          className="font-serif text-xl text-[#D48C45] mb-2 tracking-[0.15em] font-extrabold"
+          className="font-serif text-xl text-[#D48C45] tracking-[0.15em] font-extrabold"
         >
           Chloes Chicken
         </motion.h2>
       </header>
 
-      <div className="px-10 mb-8 flex-shrink-0">
-        <div className="bg-white/70 backdrop-blur-xl rounded-[32px] p-6 border border-white/40 shadow-[0_15px_35px_rgba(45,45,45,0.03)] flex justify-around items-center">
-          <div className="text-center">
-            <div className="flex items-center gap-1.5 justify-center mb-1 text-[#D48C45]">
-              <TrendingUp size={14} strokeWidth={2.5} />
-              <span className="text-[10px] font-bold uppercase tracking-wider cn-relaxed">本周统计</span>
-            </div>
-            <div className="text-3xl font-bold text-[#2D2D2D] tracking-tighter tabular-nums">{stats.weeklyTotal}</div>
+      {hens.length === 0 ? (
+        <div className="flex flex-col items-center justify-center h-full text-center px-10">
+          <div className="bg-white/40 p-12 rounded-[50px] mb-10 shadow-sm border border-[#E5D3C5]/30">
+            <HenGraphic color="#E5D3C5" size={160} />
           </div>
-          <div className="w-[1px] h-10 bg-[#E5D3C5]/30" />
-          <div className="text-center">
-            <div className="flex items-center gap-1.5 justify-center mb-1 text-[#B66649]">
-              <CalendarDays size={14} strokeWidth={2.5} />
-              <span className="text-[10px] font-bold uppercase tracking-wider cn-relaxed">本月统计</span>
-            </div>
-            <div className="text-3xl font-bold text-[#2D2D2D] tracking-tighter tabular-nums">{stats.monthlyTotal}</div>
-          </div>
-        </div>
-      </div>
-
-      <div className="flex-1 flex flex-col justify-center relative overflow-hidden min-h-[420px]">
-        <div className="text-center mb-4">
-          <p className="text-[#A0A0A0] text-[10px] font-semibold uppercase tracking-[0.3em] opacity-60 cn-relaxed">
-            点击母鸡记录产蛋
-          </p>
-        </div>
-
-        <div 
-          ref={scrollRef}
-          onMouseDown={handleMouseDown}
-          onMouseLeave={handleMouseLeave}
-          onMouseUp={handleMouseUp}
-          onMouseMove={handleMouseMove}
-          className="w-full overflow-x-auto scroll-native flex items-center h-[380px] cursor-grab active:cursor-grabbing overscroll-x-contain select-none pb-8"
-        >
-          <div 
-            className={`flex flex-nowrap min-w-full px-12 gap-[30px] items-center h-full ${
-              hens.length <= 2 ? 'justify-center' : 'justify-start'
-            }`}
+          <h1 className="font-serif text-3xl font-extrabold text-[#2D2D2D] mb-4 tracking-tighter">Chloes Chicken</h1>
+          <p className="text-[#A0A0A0] text-sm mb-12 font-medium leading-relaxed cn-relaxed">鸡舍目前空空如也。</p>
+          <button 
+            onClick={() => onNavigate(View.HENS)}
+            className="px-8 py-4 bg-[#D48C45] text-white rounded-3xl font-bold shadow-lg shadow-[#D48C45]/20"
           >
-            {hens.map((hen) => (
-              <HenHeroItem
-                key={hen.id}
-                hen={hen}
-                onTap={handleHenTap}
-                isLaying={isLayingId === hen.id}
-                isSquishing={isSquishingId === hen.id}
-                dustParticles={isLayingId === hen.id ? dustParticles : []}
-                size={HEN_DISPLAY_SIZE}
-              />
-            ))}
-            {hens.length > 2 && <div className="w-12 flex-shrink-0" />}
-          </div>
+            添加第一只母鸡
+          </button>
         </div>
-      </div>
+      ) : (
+        <>
+          <div className="px-10 mt-4 mb-8 flex-shrink-0">
+            <div className="bg-white/70 backdrop-blur-xl rounded-[32px] p-6 border border-white/40 shadow-[0_15px_35px_rgba(45,45,45,0.03)] flex justify-around items-center">
+              <div className="text-center">
+                <div className="flex items-center gap-1.5 justify-center mb-1 text-[#D48C45]">
+                  <TrendingUp size={14} strokeWidth={2.5} />
+                  <span className="text-[10px] font-bold uppercase tracking-wider cn-relaxed">本周统计</span>
+                </div>
+                <div className="text-3xl font-bold text-[#2D2D2D] tracking-tighter tabular-nums">{stats.weeklyTotal}</div>
+              </div>
+              <div className="w-[1px] h-10 bg-[#E5D3C5]/30" />
+              <div className="text-center">
+                <div className="flex items-center gap-1.5 justify-center mb-1 text-[#B66649]">
+                  <CalendarDays size={14} strokeWidth={2.5} />
+                  <span className="text-[10px] font-bold uppercase tracking-wider cn-relaxed">本月统计</span>
+                </div>
+                <div className="text-3xl font-bold text-[#2D2D2D] tracking-tighter tabular-nums">{stats.monthlyTotal}</div>
+              </div>
+            </div>
+          </div>
 
-      <div className="pb-32 flex-shrink-0" />
+          <div className="flex-1 flex flex-col justify-center relative overflow-hidden min-h-[420px]">
+            <div className="text-center mb-4">
+              <p className="text-[#A0A0A0] text-[10px] font-semibold uppercase tracking-[0.3em] opacity-60 cn-relaxed">
+                点击母鸡记录产蛋
+              </p>
+            </div>
+
+            <div 
+              ref={scrollRef}
+              onMouseDown={handleMouseDown}
+              onMouseLeave={handleMouseLeave}
+              onMouseUp={handleMouseUp}
+              onMouseMove={handleMouseMove}
+              className="w-full overflow-x-auto scroll-native flex items-center h-[380px] cursor-grab active:cursor-grabbing overscroll-x-contain select-none pb-8"
+            >
+              <div 
+                className={`flex flex-nowrap min-w-full px-12 gap-[30px] items-center h-full ${
+                  hens.length <= 2 ? 'justify-center' : 'justify-start'
+                }`}
+              >
+                {hens.map((hen) => (
+                  <HenHeroItem
+                    key={hen.id}
+                    hen={hen}
+                    onTap={handleHenTap}
+                    isLaying={isLayingId === hen.id}
+                    isSquishing={isSquishingId === hen.id}
+                    dustParticles={isLayingId === hen.id ? dustParticles : []}
+                    size={HEN_DISPLAY_SIZE}
+                  />
+                ))}
+                {hens.length > 2 && <div className="w-12 flex-shrink-0" />}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
 
       <AnimatePresence>
         {showEntryModal && (
