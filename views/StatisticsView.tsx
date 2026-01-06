@@ -454,7 +454,7 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, expenses, o
       <div className="bg-white p-10 rounded-[48px] border border-[#E5D3C5]/20 shadow-sm mb-8">
         <div className="flex items-center justify-between mb-8">
           <span className="text-[11px] font-bold text-[#A0A0A0] uppercase tracking-wider flex items-center gap-2 cn-relaxed">
-            <Trophy size={14} className="text-[#D48C45]" /> 产蛋达人榜
+            <Trophy size={14} className="text-[#D48C45]" /> 下蛋神鸡榜 🏆
           </span>
         </div>
 

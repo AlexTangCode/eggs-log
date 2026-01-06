@@ -152,7 +152,7 @@ const FinanceView: React.FC<FinanceViewProps> = ({ expenses, onRefresh, onNotify
     <div className="p-10 pb-44 bg-[#F9F5F0] min-h-full overflow-y-auto scroll-native">
       <div className="flex items-center justify-between mb-12">
         <div className="flex flex-col items-start">
-          <h1 className="font-serif text-4xl font-extrabold text-[#2D2D2D] tracking-tighter">Chloes Chicken</h1>
+          <h1 className="font-serif text-4xl font-extrabold text-[#2D2D2D] tracking-tighter">支出管理</h1>
           <p className="text-[#A0A0A0] text-[11px] mt-2 uppercase tracking-[0.3em] font-bold cn-relaxed opacity-60">支出记录管理</p>
         </div>
         <motion.button 
@@ -302,7 +302,7 @@ const FinanceView: React.FC<FinanceViewProps> = ({ expenses, onRefresh, onNotify
             <motion.div 
               initial={{ scale: 0.9, y: 30 }} 
               animate={{ scale: 1, y: 0 }} 
-              className="bg-white rounded-[44px] w-full max-w-sm p-10 shadow-2xl relative border border-[#E5D3C5]/20 text-center h-fit"
+              className="bg-white rounded-[44px] w-full max-sm p-10 shadow-2xl relative border border-[#E5D3C5]/20 text-center h-fit"
             >
               <div className="w-16 h-16 bg-[#B66649]/10 rounded-[28px] flex items-center justify-center text-[#B66649] mx-auto mb-6">
                 <AlertTriangle size={32} />
