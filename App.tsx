@@ -45,7 +45,8 @@ const App: React.FC = () => {
   const renderView = () => {
     if (loading) {
       return (
-        <div className="flex items-center justify-center h-full bg-[#F9F5F0]">
+        <div className="flex flex-col items-center justify-center h-full bg-[#F9F5F0]">
+          <h1 className="font-serif italic text-2xl text-[#D48C45] mb-8 animate-pulse">Chloes Chicken</h1>
           <motion.div 
             animate={{ rotate: 360 }}
             transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
@@ -68,7 +69,7 @@ const App: React.FC = () => {
           {(() => {
             switch (currentView) {
               case View.HOME:
-                return <HomeView hens={hens} onRefresh={refreshData} />;
+                return <HomeView hens={hens} logs={logs} onRefresh={refreshData} />;
               case View.STATISTICS:
                 return <StatisticsView hens={hens} logs={logs} onRefresh={refreshData} />;
               case View.HEALTH:
@@ -76,7 +77,7 @@ const App: React.FC = () => {
               case View.HENS:
                 return <HensView hens={hens} onRefresh={refreshData} onNotify={showNotification} />;
               default:
-                return <HomeView hens={hens} onRefresh={refreshData} />;
+                return <HomeView hens={hens} logs={logs} onRefresh={refreshData} />;
             }
           })()}
         </motion.div>

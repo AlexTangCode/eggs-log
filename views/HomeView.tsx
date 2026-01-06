@@ -1,14 +1,15 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, ChevronRight, Egg, Trash2 } from 'lucide-react';
+import { Egg, Trash2, Calendar, Scale, Hash, X, Check, TrendingUp, CalendarDays } from 'lucide-react';
 import { addDoc } from 'firebase/firestore';
-import { Hen } from '../types';
-import { eggLogsRef, deleteHenAndLogs } from '../services/firebase';
+import { Hen, EggLog } from '../types';
+import { eggLogsRef } from '../services/firebase';
 import HenGraphic from '../components/HenGraphic';
 
 interface HomeViewProps {
   hens: Hen[];
+  logs: EggLog[];
   onRefresh: () => void;
 }
 
@@ -17,271 +18,373 @@ interface MagicDust {
   x: number;
   y: number;
   size: number;
-  delay: number;
 }
 
-const HomeView: React.FC<HomeViewProps> = ({ hens, onRefresh }) => {
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [isLaying, setIsLaying] = useState(false);
-  const [isSquishing, setIsSquishing] = useState(false);
+/**
+ * HEN HERO ITEM
+ * Locked width of 160px to ensure horizontal scroll triggering as per specifications.
+ * Each item handles its own localized "Gentle Glide" animation and harvest state.
+ */
+const HenHeroItem: React.FC<{
+  hen: Hen;
+  onTap: (hen: Hen) => void;
+  isLaying: boolean;
+  isSquishing: boolean;
+  dustParticles: MagicDust[];
+  size?: number;
+}> = ({ hen, onTap, isLaying, isSquishing, dustParticles, size = 140 }) => {
+  return (
+    <div className="relative flex flex-col items-center flex-shrink-0 select-none pb-6 w-[160px] h-full justify-center">
+      <div className="relative">
+        {/* Interaction Target */}
+        <motion.div
+          onTap={() => onTap(hen)}
+          whileTap={{ scale: 0.94 }}
+          animate={{
+            scaleY: isSquishing ? 0.82 : 1,
+            scaleX: isSquishing ? 1.15 : 1,
+            y: isSquishing ? 12 : 0
+          }}
+          transition={{ duration: 0.3 }}
+          className="cursor-pointer relative z-10"
+        >
+          <div className="drop-shadow-[0_15px_45px_rgba(212,140,69,0.15)]">
+            <HenGraphic color={hen.color || '#E5D3C5'} size={size} />
+          </div>
+        </motion.div>
+
+        {/* Localized Magic Dust */}
+        <AnimatePresence>
+          {dustParticles.map(p => (
+            <motion.div
+              key={p.id}
+              initial={{ opacity: 0, x: p.x * (size / 380), y: p.y * (size / 380), scale: 0 }}
+              animate={{
+                opacity: [0, 0.6, 0],
+                y: (p.y - 120) * (size / 380),
+                scale: [0, 1.6, 0]
+              }}
+              transition={{ duration: 2.2, ease: "easeOut" }}
+              className="absolute left-1/2 bg-white rounded-full blur-[1.2px]"
+              style={{ width: p.size, height: p.size }}
+            />
+          ))}
+        </AnimatePresence>
+
+        {/* Gentle Glide Animation - Localized Position */}
+        <AnimatePresence>
+          {isLaying && (
+            <motion.div
+              initial={{ opacity: 0, x: -75 * (size / 180), y: 60 * (size / 180), scale: 0.7 }}
+              animate={{
+                opacity: [0, 1, 1, 0.5, 0],
+                x: -75 * (size / 180),
+                y: 220 * (size / 180),
+                scale: [0.7, 1, 1, 0.8, 0.6],
+              }}
+              transition={{
+                duration: 1.1,
+                ease: [0.25, 0.46, 0.45, 0.94],
+                times: [0, 0.2, 0.7, 0.9, 1]
+              }}
+              className="absolute left-1/2 top-0 pointer-events-none z-20"
+            >
+              <div className="bg-[#D48C45] rounded-full w-9 h-12 shadow-xl flex items-center justify-center border-none">
+                <Egg size={16} fill="white" stroke="none" />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* Name Label */}
+      <motion.div
+        initial={{ opacity: 0, y: 5 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="mt-6 text-center px-1"
+      >
+        <h3 className="text-xl font-black text-[#2D2D2D] tracking-tighter leading-tight truncate w-[140px]">
+          {hen.name}
+        </h3>
+        <span className="text-[8px] font-black uppercase tracking-[0.25em] text-[#D48C45] bg-[#D48C45]/10 px-3 py-1 rounded-full inline-block mt-2">
+          {hen.breed}
+        </span>
+      </motion.div>
+    </div>
+  );
+};
+
+const HomeView: React.FC<HomeViewProps> = ({ hens, logs, onRefresh }) => {
+  const [isLayingId, setIsLayingId] = useState<string | null>(null);
+  const [isSquishingId, setIsSquishingId] = useState<string | null>(null);
   const [dustParticles, setDustParticles] = useState<MagicDust[]>([]);
-  const [showWeightModal, setShowWeightModal] = useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [weight, setWeight] = useState<number>(55);
+  const [showEntryModal, setShowEntryModal] = useState(false);
+  const [activeHen, setActiveHen] = useState<Hen | null>(null);
 
-  const safeIndex = Math.min(currentIndex, Math.max(0, hens.length - 1));
-  const currentHen = hens[safeIndex];
+  const [entryWeight, setEntryWeight] = useState<number>(60);
+  const [entryQuantity, setEntryQuantity] = useState<number>(1);
+  const [entryDate, setEntryDate] = useState<string>(new Date().toISOString().split('T')[0]);
 
-  const handleLayEgg = () => {
-    if (isLaying || isSquishing || !currentHen) return;
-    
-    // 1. Pronounced Squash & Stretch Effect (Anticipation)
-    setIsSquishing(true);
-    
-    setTimeout(() => {
-      setIsSquishing(false);
-      setIsLaying(true);
-      
-      // 2. Trigger magic dust (4 delicate dots)
-      const newParticles = Array.from({ length: 4 }).map((_, i) => ({
+  const HEN_DISPLAY_SIZE = 140;
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [startX, setStartX] = useState(0);
+  const [scrollLeft, setScrollLeft] = useState(0);
+
+  // Mouse Drag to Scroll Implementation
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (!scrollRef.current) return;
+    setIsDragging(true);
+    setStartX(e.pageX - scrollRef.current.offsetLeft);
+    setScrollLeft(scrollRef.current.scrollLeft);
+  };
+
+  const handleMouseLeave = () => {
+    setIsDragging(false);
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging || !scrollRef.current) return;
+    e.preventDefault();
+    const x = e.pageX - scrollRef.current.offsetLeft;
+    const walk = (x - startX) * 2; // Scroll speed multiplier
+    scrollRef.current.scrollLeft = scrollLeft - walk;
+  };
+
+  const stats = useMemo(() => {
+    const now = new Date();
+    const startOfWeek = new Date(now);
+    const day = startOfWeek.getDay();
+    const diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1);
+    startOfWeek.setDate(diff);
+    startOfWeek.setHours(0, 0, 0, 0);
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const weeklyTotal = logs.filter(l => l.timestamp >= startOfWeek.getTime())
+      .reduce((sum, l) => sum + (l.quantity || 1), 0);
+    const monthlyTotal = logs.filter(l => l.timestamp >= startOfMonth.getTime())
+      .reduce((sum, l) => sum + (l.quantity || 1), 0);
+
+    return { weeklyTotal, monthlyTotal };
+  }, [logs]);
+
+  const handleHenTap = useCallback((hen: Hen) => {
+    if (isLayingId || isSquishingId) return;
+    setActiveHen(hen);
+    setShowEntryModal(true);
+  }, [isLayingId, isSquishingId]);
+
+  const handleConfirmHarvest = async () => {
+    if (!activeHen) return;
+    setShowEntryModal(false);
+    setIsSquishingId(activeHen.id);
+
+    setTimeout(async () => {
+      setIsSquishingId(null);
+      setIsLayingId(activeHen.id);
+
+      const newParticles = Array.from({ length: 14 }).map((_, i) => ({
         id: Date.now() + i,
-        x: -145 + (Math.random() - 0.5) * 40, 
-        y: 110 + (Math.random() - 0.5) * 15,
-        size: Math.random() * 2.5 + 1.5,
-        delay: Math.random() * 0.15
+        x: -120 + (Math.random() - 0.5) * 70,
+        y: 100,
+        size: Math.random() * 2.5 + 1,
       }));
       setDustParticles(newParticles);
 
-      // 3. Landing transition - Wait for the egg to "fall" before showing modal
+      const selectedTimestamp = new Date(entryDate).getTime() + (new Date().getHours() * 3600000) + (new Date().getMinutes() * 60000);
+      try {
+        await addDoc(eggLogsRef, {
+          henId: activeHen.id,
+          henName: activeHen.name,
+          weight: entryWeight,
+          quantity: entryQuantity,
+          timestamp: selectedTimestamp
+        });
+        onRefresh();
+      } catch (err) {
+        console.error("Firestore Error:", err);
+      }
+
       setTimeout(() => {
-        setShowWeightModal(true);
+        setIsLayingId(null);
         setDustParticles([]);
-      }, 1100);
-    }, 300); // Increased anticipation duration
-  };
-
-  const saveEgg = async () => {
-    if (!currentHen) return;
-    try {
-      await addDoc(eggLogsRef, {
-        henId: currentHen.id,
-        henName: currentHen.name,
-        weight: weight,
-        quantity: 1,
-        timestamp: Date.now()
-      });
-      setShowWeightModal(false);
-      setIsLaying(false);
-      onRefresh();
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const handleDeleteHen = async () => {
-    if (!currentHen) return;
-    try {
-      await deleteHenAndLogs(currentHen.id);
-      setShowDeleteConfirm(false);
-      if (currentIndex > 0) setCurrentIndex(prev => prev - 1);
-      onRefresh();
-    } catch (e) {
-      console.error(e);
-    }
+        setActiveHen(null);
+      }, 1250);
+    }, 450);
   };
 
   if (hens.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-center px-10 bg-[#F9F5F0]">
-        <div className="bg-white/40 p-12 rounded-[50px] mb-10 shadow-[0_30px_60px_rgba(45,45,45,0.02)] border border-[#E5D3C5]/30">
+        <div className="bg-white/40 p-12 rounded-[50px] mb-10 shadow-sm border border-[#E5D3C5]/30">
           <HenGraphic color="#E5D3C5" size={160} />
         </div>
-        <h2 className="text-3xl font-bold text-[#2D2D2D] mb-4 tracking-tight">Your Coop Awaits</h2>
-        <p className="text-[#A0A0A0] text-sm mb-12 font-medium italic leading-relaxed">The nest is empty. Add your first hen to begin the journey of harvest.</p>
+        <h1 className="font-serif text-3xl font-bold text-[#2D2D2D] mb-4 italic">Chloes Chicken</h1>
+        <p className="text-[#A0A0A0] text-sm mb-12 font-medium italic leading-relaxed">The coop is empty. Head to the Flock tab to welcome your first hen.</p>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col h-full bg-[#F9F5F0] relative overflow-hidden">
-      {/* Header with Hen Info */}
-      <div className="pt-20 pb-4 px-10 text-center relative z-10">
-        <motion.div
-          key={currentHen?.id}
-          initial={{ opacity: 0, y: 15 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex flex-col items-center"
+    <div className="flex flex-col h-full bg-[#F9F5F0] relative overflow-hidden pt-safe">
+      <header className="pt-10 pb-4 px-10 text-center relative z-20">
+        <motion.h2
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 0.5 }}
+          className="font-serif text-xl italic text-[#D48C45] mb-2 tracking-[0.2em]"
         >
-          <h1 className="text-5xl font-bold text-[#2D2D2D] tracking-tighter mb-2">{currentHen?.name}</h1>
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] font-black uppercase tracking-[0.2em] text-[#D48C45] bg-[#D48C45]/10 px-3 py-1 rounded-full">
-              {currentHen?.breed}
-            </span>
-            <span className="text-[11px] font-bold text-[#A0A0A0] uppercase tracking-widest">
-              Age {currentHen?.age}
-            </span>
+          Chloes Chicken
+        </motion.h2>
+      </header>
+
+      {/* PRODUCTION DASHBOARD */}
+      <div className="px-10 mb-8 flex-shrink-0">
+        <div className="bg-white/70 backdrop-blur-xl rounded-[32px] p-6 border border-white/40 shadow-[0_15px_35px_rgba(45,45,45,0.03)] flex justify-around items-center">
+          <div className="text-center">
+            <div className="flex items-center gap-1.5 justify-center mb-1 text-[#D48C45]">
+              <TrendingUp size={14} strokeWidth={3} />
+              <span className="text-[9px] font-black uppercase tracking-widest">Weekly</span>
+            </div>
+            <div className="text-3xl font-black text-[#2D2D2D] tracking-tighter tabular-nums">{stats.weeklyTotal}</div>
           </div>
-        </motion.div>
-        
-        <button 
-          onClick={() => setShowDeleteConfirm(true)}
-          className="absolute top-20 right-8 p-3 text-gray-300 hover:text-[#B66649] transition-colors"
-        >
-          <Trash2 size={20} strokeWidth={1.5} />
-        </button>
+          <div className="w-[1px] h-10 bg-[#E5D3C5]/30" />
+          <div className="text-center">
+            <div className="flex items-center gap-1.5 justify-center mb-1 text-[#B66649]">
+              <CalendarDays size={14} strokeWidth={3} />
+              <span className="text-[9px] font-black uppercase tracking-widest">Monthly</span>
+            </div>
+            <div className="text-3xl font-black text-[#2D2D2D] tracking-tighter tabular-nums">{stats.monthlyTotal}</div>
+          </div>
+        </div>
       </div>
 
-      {/* Interactive Main Area */}
-      <div className="flex-1 flex flex-col items-center justify-center relative px-4">
-        <button 
-          disabled={safeIndex === 0}
-          onClick={() => setCurrentIndex(prev => prev - 1)}
-          className="absolute left-4 z-20 p-4 text-[#E5D3C5] hover:text-[#D48C45] disabled:opacity-0 transition-colors"
-        >
-          <ChevronLeft size={44} strokeWidth={1} />
-        </button>
+      {/* HERO SECTION - Mandatory Scroll Physics */}
+      <div className="flex-1 flex flex-col justify-center relative overflow-hidden min-h-[400px]">
+        <div className="text-center mb-6">
+          <p className="text-[#A0A0A0] text-[10px] font-black uppercase tracking-[0.6em] italic opacity-50">
+            Tap to record harvest
+          </p>
+        </div>
 
-        <div className="relative mb-24 w-full flex justify-center">
-          <motion.div 
-            className="cursor-pointer relative z-10"
-            animate={{ 
-              scaleY: isSquishing ? 0.82 : 1, // More pronounced squash
-              scaleX: isSquishing ? 1.15 : 1, // More pronounced stretch
-              y: isSquishing ? 15 : 0         // Sinks down slightly
-            }}
-            transition={{ 
-              duration: isSquishing ? 0.3 : 0.6, 
-              type: "spring", 
-              stiffness: isSquishing ? 300 : 120,
-              damping: 15
-            }}
-            onClick={handleLayEgg}
+        {/* 
+          SCROLL CONTAINER (The "SingleChildScrollView")
+          Locked height and width triggers.
+          Includes Mouse Drag logic for Desktop/Web compatibility.
+        */}
+        <div 
+          ref={scrollRef}
+          onMouseDown={handleMouseDown}
+          onMouseLeave={handleMouseLeave}
+          onMouseUp={handleMouseUp}
+          onMouseMove={handleMouseMove}
+          className={`w-full overflow-x-auto scroll-native flex items-center h-[380px] cursor-grab active:cursor-grabbing overscroll-x-contain select-none`}
+        >
+          <div 
+            className={`flex flex-nowrap min-w-full px-12 gap-[30px] items-center h-full ${
+              hens.length <= 2 ? 'justify-center' : 'justify-start'
+            }`}
           >
-            <AnimatePresence mode="wait">
-               <motion.div
-                 key={currentHen?.id}
-                 initial={{ opacity: 0, scale: 0.96 }}
-                 animate={{ opacity: 1, scale: 1 }}
-                 exit={{ opacity: 0, scale: 0.96 }}
-                 className="drop-shadow-[0_40px_100px_rgba(212,140,69,0.06)]"
-               >
-                 <HenGraphic color={currentHen?.color || '#E5D3C5'} size={360} />
-               </motion.div>
-            </AnimatePresence>
-
-            {/* Magic Dust Particles */}
-            <AnimatePresence>
-              {dustParticles.map(p => (
-                <motion.div
-                  key={p.id}
-                  initial={{ opacity: 0, x: p.x, y: p.y, scale: 0 }}
-                  animate={{ opacity: [0, 0.7, 0], y: p.y - 70, scale: [0, 1.4, 0] }}
-                  transition={{ duration: 0.6, delay: p.delay, ease: "easeOut" }}
-                  className="absolute left-1/2 bg-white rounded-full blur-[3px]"
-                  style={{ width: p.size, height: p.size }}
-                />
-              ))}
-            </AnimatePresence>
-
-            {/* Elegant Egg Drop Animation */}
-            <AnimatePresence>
-              {isLaying && (
-                <motion.div
-                  initial={{ opacity: 0, x: -140, y: 110, scale: 0.4 }}
-                  animate={{ 
-                    opacity: [0, 1, 1],
-                    x: -280, 
-                    y: 135, 
-                    scale: 1,
-                    rotate: -20
-                  }}
-                  transition={{ 
-                    duration: 0.85,
-                    ease: [0.7, 0, 0.84, 0] // Steep Curves.easeInExpo behavior
-                  }}
-                  className="absolute left-1/2 top-0 pointer-events-none"
-                >
-                  <div className="bg-[#D48C45] rounded-full w-14 h-18 shadow-[0_15px_30px_rgba(212,140,69,0.25)] flex items-center justify-center">
-                    <Egg size={32} fill="white" stroke="none" />
-                  </div>
-                  
-                  {/* Subtle Impact Shadow Effect */}
-                  <motion.div 
-                    initial={{ opacity: 0, scale: 0.1 }}
-                    animate={{ 
-                      opacity: [0, 0.08, 0], 
-                      scale: [0.3, 1.8, 1.2] 
-                    }}
-                    transition={{ 
-                      delay: 0.75, 
-                      duration: 0.5,
-                      ease: "easeOut" 
-                    }}
-                    className="absolute bottom-[-15px] left-1/2 -translate-x-1/2 w-16 h-4 bg-[#2D2D2D] rounded-full blur-2xl"
-                  />
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </motion.div>
-        </div>
-
-        <button 
-          disabled={safeIndex === hens.length - 1}
-          onClick={() => setCurrentIndex(prev => prev + 1)}
-          className="absolute right-4 z-20 p-4 text-[#E5D3C5] hover:text-[#D48C45] disabled:opacity-0 transition-colors"
-        >
-          <ChevronRight size={44} strokeWidth={1} />
-        </button>
-
-        {/* Pagination Pips */}
-        <div className="flex gap-3 mb-16">
-          {hens.map((_, idx) => (
-            <div 
-              key={idx}
-              className={`h-1.5 rounded-full transition-all duration-500 ${idx === safeIndex ? 'w-8 bg-[#D48C45]' : 'w-1.5 bg-[#E5D3C5]'}`}
-            />
-          ))}
-        </div>
-      </div>
-
-      <div className="pb-40 text-center">
-        <p className="text-[#A0A0A0] text-[10px] font-black uppercase tracking-[0.6em] italic opacity-30">Tap hen to collect egg</p>
-      </div>
-
-      {/* Modals */}
-      <AnimatePresence>
-        {showWeightModal && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[200] bg-[#F9F5F0]/60 backdrop-blur-2xl flex items-end justify-center">
-            <motion.div initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }} className="bg-white rounded-t-[50px] w-full max-w-md p-12 shadow-[0_-20px_100px_rgba(45,45,45,0.08)] border-t border-[#E5D3C5]/20">
-              <div className="text-center mb-12">
-                <h3 className="text-[10px] font-black text-[#A0A0A0] uppercase tracking-[0.4em] mb-4">Production Weight</h3>
-                <div className="text-8xl font-black text-[#D48C45] tracking-tighter tabular-nums mb-2">
-                  {weight}<span className="text-lg font-black text-[#A0A0A0] ml-2">G</span>
-                </div>
-              </div>
-
-              <input 
-                type="range" min="30" max="90" value={weight}
-                onChange={(e) => setWeight(parseInt(e.target.value))}
-                className="w-full h-1.5 bg-[#F9F5F0] rounded-full appearance-none cursor-pointer mb-16"
+            {hens.map((hen) => (
+              <HenHeroItem
+                key={hen.id}
+                hen={hen}
+                onTap={handleHenTap}
+                isLaying={isLayingId === hen.id}
+                isSquishing={isSquishingId === hen.id}
+                dustParticles={isLayingId === hen.id ? dustParticles : []}
+                size={HEN_DISPLAY_SIZE}
               />
+            ))}
+            {/* Horizontal Padding Buffer */}
+            {hens.length > 2 && <div className="w-12 flex-shrink-0" />}
+          </div>
+        </div>
+      </div>
 
-              <div className="flex gap-4">
-                <button onClick={() => { setShowWeightModal(false); setIsLaying(false); }} className="flex-1 py-5 font-black text-[#A0A0A0] uppercase tracking-widest text-[10px] active:opacity-50 transition-opacity">Discard</button>
-                <button onClick={saveEgg} className="flex-1 py-6 bg-[#D48C45] text-white rounded-[32px] font-bold text-lg shadow-xl shadow-[#D48C45]/20 active:scale-95 transition-transform">Record harvest</button>
+      <div className="pb-32 flex-shrink-0" />
+
+      {/* HARVEST DIALOG */}
+      <AnimatePresence>
+        {showEntryModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[300] bg-[#F9F5F0]/80 backdrop-blur-3xl flex items-center justify-center p-6"
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              className="bg-white rounded-[40px] w-full max-sm p-10 shadow-2xl border border-[#E5D3C5]/10 relative"
+            >
+              <button
+                onClick={() => setShowEntryModal(false)}
+                className="absolute top-8 right-8 p-2 text-gray-300 hover:text-[#2D2D2D]"
+              >
+                <X size={20} />
+              </button>
+
+              <div className="text-center mb-10">
+                <div className="w-16 h-16 bg-[#D48C45]/10 rounded-[28px] flex items-center justify-center text-[#D48C45] mx-auto mb-4">
+                  <Egg size={32} />
+                </div>
+                <h3 className="font-serif text-3xl font-bold text-[#2D2D2D] italic">Harvest Entry</h3>
+                <p className="text-[#A0A0A0] text-[11px] font-bold uppercase tracking-wider mt-1.5 opacity-80">Collecting for {activeHen?.name}</p>
               </div>
-            </motion.div>
-          </motion.div>
-        )}
 
-        {showDeleteConfirm && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[210] bg-[#2D2D2D]/10 backdrop-blur-xl flex items-center justify-center p-8">
-            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} className="bg-white rounded-[44px] w-full max-sm p-10 shadow-2xl border border-[#E5D3C5]/20 text-center">
-              <h3 className="text-2xl font-bold text-[#2D2D2D] mb-3">Remove {currentHen?.name}?</h3>
-              <p className="text-[#A0A0A0] text-sm mb-12 leading-relaxed italic">This will permanently delete her profile and all harvest records.</p>
-              <div className="flex flex-col gap-3">
-                <button onClick={handleDeleteHen} className="w-full py-5 bg-[#B66649] text-white rounded-3xl font-bold active:scale-95 transition-transform shadow-lg shadow-[#B66649]/20">Confirm Removal</button>
-                <button onClick={() => setShowDeleteConfirm(false)} className="w-full py-5 text-[#A0A0A0] font-black uppercase tracking-widest text-[10px]">Cancel</button>
+              <div className="space-y-8">
+                <div>
+                  <div className="flex items-center justify-between mb-3 px-1">
+                    <label className="text-[10px] font-black text-[#A0A0A0] uppercase tracking-widest flex items-center gap-2">
+                      <Scale size={14} /> Average Mass
+                    </label>
+                    <span className="text-2xl font-black text-[#D48C45] tabular-nums tracking-tighter">{entryWeight}g</span>
+                  </div>
+                  <input
+                    type="range" min="30" max="90" value={entryWeight}
+                    onChange={(e) => setEntryWeight(parseInt(e.target.value))}
+                    className="w-full h-1.5 bg-[#F9F5F0] rounded-full appearance-none cursor-pointer"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-5">
+                   <div>
+                    <label className="text-[10px] font-black text-[#A0A0A0] uppercase tracking-widest block mb-2 flex items-center gap-2">
+                      <Hash size={14} /> Count
+                    </label>
+                    <select
+                      value={entryQuantity}
+                      onChange={(e) => setEntryQuantity(parseInt(e.target.value))}
+                      className="w-full p-4 bg-[#F9F5F0]/60 border border-[#E5D3C5]/20 rounded-2xl outline-none font-bold text-sm text-[#2D2D2D] appearance-none text-center"
+                    >
+                      {[1, 2, 3, 4, 5].map(v => <option key={v} value={v}>{v}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-black text-[#A0A0A0] uppercase tracking-widest block mb-2 flex items-center gap-2">
+                      <Calendar size={14} /> Date
+                    </label>
+                    <input
+                      type="date"
+                      value={entryDate}
+                      onChange={(e) => setEntryDate(e.target.value)}
+                      className="w-full p-4 bg-[#F9F5F0]/60 border border-[#E5D3C5]/20 rounded-2xl outline-none font-bold text-[11px] text-[#2D2D2D]"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  onClick={handleConfirmHarvest}
+                  className="w-full py-6 bg-[#D48C45] text-white rounded-[28px] font-bold text-xl shadow-xl shadow-[#D48C45]/20 active:scale-95 transition-all flex items-center justify-center gap-3"
+                >
+                  <Check size={24} />
+                  Record Harvest
+                </button>
               </div>
             </motion.div>
           </motion.div>

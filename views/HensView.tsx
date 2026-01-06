@@ -29,16 +29,17 @@ const HenItem: React.FC<{
       >
         <div className="flex flex-col items-center gap-1">
           <Trash2 size={24} />
-          <span className="text-[9px] font-black uppercase tracking-widest">Remove</span>
+          <span className="text-[9px] font-black uppercase tracking-widest text-center">Delete</span>
         </div>
       </motion.div>
 
       <motion.div
         drag="x"
+        dragDirectionLock
         dragConstraints={{ left: -100, right: 0 }}
         dragElastic={0.05}
         onDragEnd={(_, info) => {
-          if (info.offset.x < -80) onDelete(hen);
+          if (info.offset.x < -60) onDelete(hen);
         }}
         style={{ x }}
         className="bg-white p-6 rounded-[32px] border border-[#E5D3C5]/20 flex items-center justify-between shadow-[0_10px_30px_rgba(45,45,45,0.01)] relative z-10 touch-pan-x"
@@ -51,7 +52,6 @@ const HenItem: React.FC<{
             <h3 className="font-bold text-[#2D2D2D] text-xl leading-tight tracking-tight">{hen.name}</h3>
             <div className="flex gap-2 text-[10px] font-black text-[#A0A0A0] uppercase tracking-[0.2em] mt-2">
               <span className="bg-[#F9F5F0] px-3 py-1 rounded-full">{hen.breed}</span>
-              <span className="bg-[#F9F5F0] px-3 py-1 rounded-full">{hen.age}</span>
             </div>
           </div>
         </div>
@@ -100,7 +100,7 @@ const HensView: React.FC<HensViewProps> = ({ hens, onRefresh, onNotify }) => {
           color, 
           createdAt: Date.now() 
         });
-        onNotify(`${name} registered!`);
+        onNotify(`${name} welcomed!`);
       }
       setEditingHen(null);
       setShowAdd(false);
@@ -137,8 +137,8 @@ const HensView: React.FC<HensViewProps> = ({ hens, onRefresh, onNotify }) => {
     <div className="p-10 pb-40 bg-[#F9F5F0] min-h-full scroll-native overflow-y-auto">
       <div className="flex items-center justify-between mb-12">
         <div>
-          <h1 className="text-4xl font-bold text-[#2D2D2D] tracking-tighter">The Flock</h1>
-          <p className="text-[#A0A0A0] text-[10px] mt-2 uppercase tracking-[0.4em] font-black">Coop Management</p>
+          <h1 className="font-serif text-4xl font-bold text-[#2D2D2D] tracking-tighter italic">The Flock</h1>
+          <p className="text-[#A0A0A0] text-[10px] mt-2 uppercase tracking-[0.4em] font-black">Chloes Management</p>
         </div>
         <motion.button 
           whileTap={{ scale: 0.9 }} 
@@ -165,7 +165,7 @@ const HensView: React.FC<HensViewProps> = ({ hens, onRefresh, onNotify }) => {
               className="flex flex-col items-center justify-center py-24 text-center opacity-30 bg-white/30 rounded-[50px] border border-dashed border-[#E5D3C5]/40"
             >
               <Users size={48} strokeWidth={1} className="mb-5 text-[#A0A0A0]" />
-              <p className="text-[10px] font-black uppercase tracking-[0.6em] text-[#A0A0A0]">Empty Coop</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.6em] text-[#A0A0A0]">Empty Nest</p>
             </motion.div>
           ) : (
             hens.map((hen) => (
@@ -181,7 +181,7 @@ const HensView: React.FC<HensViewProps> = ({ hens, onRefresh, onNotify }) => {
         
         {hens.length > 0 && (
           <p className="text-center text-[9px] text-[#A0A0A0] font-black uppercase tracking-[0.6em] mt-8 opacity-40">
-            Swipe left to remove
+            Swipe left to remove member
           </p>
         )}
       </div>
@@ -205,17 +205,17 @@ const HensView: React.FC<HensViewProps> = ({ hens, onRefresh, onNotify }) => {
               >
                 <X size={24} />
               </button>
-              <h2 className="text-3xl font-bold text-[#2D2D2D] mb-10 tracking-tighter">
-                {editingHen ? `Edit Profile` : 'New Member'}
+              <h2 className="font-serif text-3xl font-bold text-[#2D2D2D] mb-10 tracking-tighter italic">
+                {editingHen ? `Profile Details` : 'New Flock Member'}
               </h2>
               <form onSubmit={handleSubmit} className="space-y-8">
                 <div>
-                  <label className="text-[10px] font-black text-[#A0A0A0] uppercase tracking-[0.3em] block mb-3 px-1">Coop Name</label>
+                  <label className="text-[10px] font-black text-[#A0A0A0] uppercase tracking-[0.3em] block mb-3 px-1">Name</label>
                   <input 
                     type="text" 
                     value={name} 
                     onChange={e => setName(e.target.value)} 
-                    placeholder="Vanessa" 
+                    placeholder="Chloe" 
                     className="w-full p-5 bg-[#F9F5F0]/60 border border-[#E5D3C5]/30 rounded-2xl outline-none font-bold text-[#2D2D2D]" 
                     required 
                   />
@@ -243,7 +243,7 @@ const HensView: React.FC<HensViewProps> = ({ hens, onRefresh, onNotify }) => {
                   </div>
                 </div>
                 <div>
-                  <label className="text-[10px] font-black text-[#A0A0A0] uppercase tracking-[0.3em] block mb-5 px-1">Coat Color</label>
+                  <label className="text-[10px] font-black text-[#A0A0A0] uppercase tracking-[0.3em] block mb-5 px-1">Feather Color</label>
                   <div className="flex gap-4 justify-between px-2">
                     {colors.map(c => (
                       <button 
@@ -258,9 +258,9 @@ const HensView: React.FC<HensViewProps> = ({ hens, onRefresh, onNotify }) => {
                 </div>
                 <button 
                   type="submit" 
-                  className="w-full py-6 bg-[#D48C45] text-white rounded-[32px] font-bold text-lg shadow-xl shadow-[#D48C45]/20 transition-transform active:scale-95"
+                  className="w-full py-6 bg-[#D48C45] text-white rounded-[32px] font-bold text-lg shadow-xl shadow-[#D48C45]/20 active:scale-95 transition-transform"
                 >
-                  {editingHen ? 'Save Updates' : 'Welcome Home'}
+                  {editingHen ? 'Update Records' : 'Join Flock'}
                 </button>
               </form>
             </motion.div>
