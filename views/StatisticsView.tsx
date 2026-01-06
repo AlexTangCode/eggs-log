@@ -6,7 +6,7 @@ import { Hen, EggLog, Expense, ExpenseCategory } from '../types';
 import { 
   Scale, Egg, TrendingUp, Edit3, Trash2, X, Clock, ListFilter, Hash, 
   CheckCircle, AlertTriangle, Trophy, CalendarDays, Coins, 
-  ReceiptText, ChevronLeft, ChevronRight, Save, Loader2
+  ReceiptText, ChevronLeft, ChevronRight, Save, Loader2, Calendar
 } from 'lucide-react';
 import { 
   deleteEggLog, updateEggLogDetailed, getGlobalSettings, updateGlobalSettings 
@@ -19,17 +19,28 @@ interface StatisticsViewProps {
   onRefresh?: () => void;
 }
 
-const LogItem: React.FC<{ 
+const LogItem = React.memo(({ 
+  log, 
+  henName, 
+  onDeleteRequest, 
+  onEdit 
+}: { 
   log: EggLog; 
   henName: string;
   onDeleteRequest: (id: string) => void; 
   onEdit: (log: EggLog) => void 
-}> = ({ log, henName, onDeleteRequest, onEdit }) => {
+}) => {
   const x = useMotionValue(0);
   const opacity = useTransform(x, [-100, -20], [1, 0]);
 
   return (
-    <div className="relative overflow-hidden rounded-[32px] mb-4">
+    <motion.div 
+      layout
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
+      className="relative overflow-hidden rounded-[32px] mb-4"
+    >
       <motion.div 
         style={{ opacity }}
         className="absolute inset-0 bg-[#FFEBEE] flex items-center justify-end px-12 text-[#B66649] z-0"
@@ -49,6 +60,8 @@ const LogItem: React.FC<{
           if (info.offset.x < -100) {
             onDeleteRequest(log.id);
             x.set(0); 
+          } else {
+            x.set(0);
           }
         }}
         style={{ x }}
@@ -58,7 +71,7 @@ const LogItem: React.FC<{
           <div className="w-14 h-14 bg-[#F9F5F0] rounded-[24px] flex items-center justify-center text-[#D48C45] border border-[#E5D3C5]/20">
              <Egg size={24} fill="currentColor" stroke="none" />
           </div>
-          <div>
+          <div className="flex flex-col items-start">
             <div className="flex items-center gap-2">
               <h5 className="font-bold text-[#2D2D2D] text-lg leading-tight tracking-tight cn-relaxed">{henName}</h5>
               {log.quantity > 1 && (
@@ -86,9 +99,9 @@ const LogItem: React.FC<{
           </button>
         </div>
       </motion.div>
-    </div>
+    </motion.div>
   );
-};
+});
 
 const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, expenses, onRefresh }) => {
   const [timeRange, setTimeRange] = useState<'month' | 'year' | 'all'>('month');
@@ -108,7 +121,6 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, expenses, o
 
   const debounceTimeout = useRef<NodeJS.Timeout | null>(null);
 
-  // Initial load of global settings
   useEffect(() => {
     getGlobalSettings().then(settings => {
       if (settings && settings.eggPrice) {
@@ -117,14 +129,12 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, expenses, o
     });
   }, []);
 
-  // Map hen ID to its current name for consistent display
   const henNameMap = useMemo(() => {
     const map: Record<string, string> = {};
     hens.forEach(h => { map[h.id] = h.name; });
     return map;
   }, [hens]);
 
-  // Auto-save logic for eggPrice
   const handlePriceChange = (newPrice: number) => {
     setEggPrice(newPrice);
     setSaveStatus('saving');
@@ -187,6 +197,7 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, expenses, o
     let activeLogs = logs;
     let activeExpenses = expenses;
 
+    // Strict filtering by Year and Month using range
     if (activeWindow) {
       activeLogs = logs.filter(l => l.timestamp >= activeWindow.start && l.timestamp < activeWindow.end);
       activeExpenses = expenses.filter(e => e.timestamp >= activeWindow.start && e.timestamp < activeWindow.end);
@@ -209,7 +220,6 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, expenses, o
 
     const pieData = Object.entries(expByCategory).map(([name, value]) => ({ name, value }));
 
-    // Grouping by henId ensures that renaming a hen doesn't split their statistics
     const henCounts = activeLogs.reduce((acc, l) => {
       const id = l.henId;
       acc[id] = (acc[id] || 0) + (l.quantity || 1);
@@ -220,7 +230,7 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, expenses, o
       .sort((a, b) => b[1] - a[1])
       .map(([id, count]) => ({ 
         id, 
-        name: henNameMap[id] || '已移除的母鸡', // Fallback name if hen was deleted
+        name: henNameMap[id] || '已移除的母鸡', 
         count 
       }));
 
@@ -281,7 +291,7 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, expenses, o
     <div className="p-10 pb-44 min-h-full bg-[#F9F5F0] scroll-native overflow-y-auto">
       <header className="mb-10 flex flex-col gap-6">
         <div className="flex items-center justify-between">
-          <div>
+          <div className="flex flex-col items-start">
             <h1 className="text-4xl font-extrabold text-[#2D2D2D] tracking-tighter font-serif">产蛋实验室</h1>
             <p className="text-[#A0A0A0] text-[10px] mt-2 uppercase tracking-[0.4em] font-semibold cn-relaxed opacity-60">数据透视</p>
           </div>
@@ -345,7 +355,6 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, expenses, o
         )}
       </header>
 
-      {/* Financial Summary Card */}
       <div className="bg-white p-10 rounded-[48px] border border-[#E5D3C5]/20 shadow-xl mb-8 relative overflow-hidden">
         <div className="flex items-center gap-3 mb-10">
           <div className="w-10 h-10 bg-green-50 rounded-2xl flex items-center justify-center text-green-600">
@@ -357,21 +366,21 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, expenses, o
         </div>
 
         <div className="grid grid-cols-2 gap-8 mb-10">
-          <div>
+          <div className="flex flex-col items-start">
             <span className="text-[10px] font-bold text-[#A0A0A0] uppercase tracking-wider block mb-2">总支出</span>
             <div className="text-3xl font-bold text-red-500 tabular-nums">${stats.totalExp.toFixed(2)}</div>
           </div>
-          <div>
+          <div className="flex flex-col items-start">
             <span className="text-[10px] font-bold text-[#A0A0A0] uppercase tracking-wider block mb-2">总收益</span>
             <div className="text-3xl font-bold text-green-600 tabular-nums">${stats.totalRev.toFixed(2)}</div>
           </div>
-          <div>
+          <div className="flex flex-col items-start">
             <span className="text-[10px] font-bold text-[#A0A0A0] uppercase tracking-wider block mb-2">净利润</span>
             <div className={`text-3xl font-bold tabular-nums ${stats.netProfit >= 0 ? 'text-green-600' : 'text-red-500'}`}>
               ${stats.netProfit.toFixed(2)}
             </div>
           </div>
-          <div>
+          <div className="flex flex-col items-start">
             <span className="text-[10px] font-bold text-[#A0A0A0] uppercase tracking-wider block mb-2">单枚成本</span>
             <div className="text-3xl font-bold text-[#2D2D2D] tabular-nums">${stats.costPerEgg}</div>
           </div>
@@ -406,7 +415,6 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, expenses, o
         )}
       </div>
 
-      {/* Production Card */}
       <div className="bg-white p-10 rounded-[48px] border border-[#E5D3C5]/20 shadow-sm mb-8 relative overflow-hidden">
         <div className="flex items-center gap-3 mb-8">
           <div className="w-10 h-10 bg-[#D48C45]/10 rounded-2xl flex items-center justify-center text-[#D48C45]">
@@ -418,7 +426,7 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, expenses, o
         </div>
 
         <div className="flex items-end justify-between mb-8">
-          <div>
+          <div className="flex flex-col items-start">
             <div className="text-6xl font-bold text-[#2D2D2D] tracking-tighter tabular-nums leading-none">
               {stats.activeTotal}
             </div>
@@ -453,31 +461,33 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, expenses, o
         {stats.rankings.length > 0 ? (
           <div className="space-y-6">
             {stats.rankings.map((hen, idx) => (
-              <div key={hen.id} className="flex items-center gap-4">
-                <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold text-xs ${
-                  idx === 0 ? 'bg-[#D48C45] text-white' : 'bg-[#F9F5F0] text-[#A0A0A0]'
-                }`}>
-                  {idx + 1}
-                </div>
-                <div className="flex-1">
-                  <div className="flex justify-between mb-2">
-                    <span className="text-sm font-semibold text-[#2D2D2D] cn-relaxed">{hen.name}</span>
-                    <span className="text-sm font-bold text-[#D48C45] tabular-nums">{hen.count} 枚</span>
+              <div key={hen.id} className="flex flex-col items-stretch gap-4">
+                <div className="flex items-center gap-4">
+                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold text-xs ${
+                    idx === 0 ? 'bg-[#D48C45] text-white' : 'bg-[#F9F5F0] text-[#A0A0A0]'
+                  }`}>
+                    {idx + 1}
                   </div>
-                  <div className="h-1.5 w-full bg-[#F9F5F0] rounded-full overflow-hidden">
-                    <motion.div 
-                      initial={{ width: 0 }}
-                      animate={{ width: `${(hen.count / stats.rankings[0].count) * 100}%` }}
-                      transition={{ duration: 0.8, ease: "easeOut" }}
-                      className="h-full bg-[#D48C45] rounded-full"
-                    />
+                  <div className="flex-1 flex flex-col items-stretch">
+                    <div className="flex justify-between mb-2">
+                      <span className="text-sm font-semibold text-[#2D2D2D] cn-relaxed">{hen.name}</span>
+                      <span className="text-sm font-bold text-[#D48C45] tabular-nums">{hen.count} 枚</span>
+                    </div>
+                    <div className="h-1.5 w-full bg-[#F9F5F0] rounded-full overflow-hidden">
+                      <motion.div 
+                        initial={{ width: 0 }}
+                        animate={{ width: `${(hen.count / stats.rankings[0].count) * 100}%` }}
+                        transition={{ duration: 0.8, ease: "easeOut" }}
+                        className="h-full bg-[#D48C45] rounded-full"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
             ))}
           </div>
         ) : (
-          <p className="text-[#A0A0A0] text-sm italic text-center py-4 cn-relaxed">当前时段暂无记录。</p>
+          <p className="text-[#A0A0A0] text-sm text-center py-4 cn-relaxed">当前时段暂无记录。</p>
         )}
       </div>
 
@@ -496,17 +506,23 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, expenses, o
       </div>
 
       <div className="mb-20">
-        <AnimatePresence initial={false}>
+        <AnimatePresence mode="popLayout" initial={false}>
           {stats.activeLogs.length === 0 ? (
-            <div className="text-center py-24 bg-white/40 rounded-[48px] border border-dashed border-[#E5D3C5]/40 text-[#A0A0A0] text-sm font-medium cn-relaxed">
+            <motion.div 
+              key="empty"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="text-center py-24 bg-white/40 rounded-[48px] border border-dashed border-[#E5D3C5]/40 text-[#A0A0A0] text-sm font-medium cn-relaxed"
+            >
               当前时段暂无产蛋数据。
-            </div>
+            </motion.div>
           ) : (
             displayedLogs.map((log) => (
               <LogItem 
                 key={log.id} 
                 log={log} 
-                henName={henNameMap[log.henId] || log.henName} // Use the latest name if available
+                henName={henNameMap[log.henId] || log.henName} 
                 onDeleteRequest={(id) => setLogToDeleteId(id)} 
                 onEdit={(l) => {
                   setEditingLog(l);
@@ -525,7 +541,7 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, expenses, o
       <AnimatePresence>
         {logToDeleteId && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[500] bg-[#2D2D2D]/20 backdrop-blur-3xl flex items-center justify-center p-8">
-            <motion.div initial={{ scale: 0.9, y: 30 }} animate={{ scale: 1, y: 0 }} className="bg-white rounded-[44px] w-full max-sm p-10 shadow-2xl relative border border-[#E5D3C5]/20 text-center">
+            <motion.div initial={{ scale: 0.9, y: 30 }} animate={{ scale: 1, y: 0 }} className="bg-white rounded-[44px] w-full max-sm p-10 shadow-2xl relative border border-[#E5D3C5]/20 text-center h-fit">
               <div className="w-16 h-16 bg-[#B66649]/10 rounded-[28px] flex items-center justify-center text-[#B66649] mx-auto mb-6"><AlertTriangle size={32} /></div>
               <h2 className="font-serif text-2xl font-bold text-[#2D2D2D] mb-4 tracking-tighter">确认删除记录？</h2>
               <p className="text-sm text-[#A0A0A0] leading-relaxed mb-8 font-medium cn-relaxed">记录删除后无法恢复。</p>
@@ -541,32 +557,64 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, expenses, o
       <AnimatePresence>
         {editingLog && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[400] bg-[#2D2D2D]/20 backdrop-blur-3xl flex items-center justify-center p-8">
-                <motion.div initial={{ scale: 0.9, y: 30 }} animate={{ scale: 1, y: 0 }} className="bg-white rounded-[44px] w-full max-w-md p-12 shadow-2xl relative border border-[#E5D3C5]/20">
-                    <button onClick={() => setEditingLog(null)} className="absolute top-10 right-10 text-gray-300 hover:text-[#2D2D2D] transition-colors"><X size={24} /></button>
-                    <h2 className="text-3xl font-bold text-[#2D2D2D] mb-12 tracking-tighter font-serif">编辑产蛋记录</h2>
-                    <div className="space-y-10">
-                        <div>
-                            <div className="flex items-center justify-between mb-5 px-1">
-                              <label className="text-[11px] font-bold text-[#A0A0A0] uppercase tracking-wider flex items-center gap-2 cn-relaxed"><Scale size={14} /> 重量 (g)</label>
-                              <span className="text-4xl font-bold text-[#D48C45] tabular-nums tracking-tighter">{editWeight}</span>
+                <motion.div initial={{ scale: 0.9, y: 30 }} animate={{ scale: 1, y: 0 }} className="bg-white rounded-[44px] w-full max-w-md p-10 shadow-2xl relative border border-[#E5D3C5]/20 h-fit">
+                    <button onClick={() => setEditingLog(null)} className="absolute top-8 right-8 text-gray-300 hover:text-[#2D2D2D] transition-colors"><X size={24} /></button>
+                    <div className="flex flex-col items-start w-full">
+                      <h2 className="text-3xl font-bold text-[#2D2D2D] mb-8 tracking-tighter font-serif">编辑产蛋记录</h2>
+                      
+                      <div className="flex flex-col items-stretch w-full space-y-3">
+                          {/* Weight Row */}
+                          <div className="flex items-center gap-4 py-3">
+                            <label className="w-[60px] text-[11px] font-bold text-[#A0A0A0] uppercase tracking-wider cn-relaxed flex items-center gap-1.5">
+                              <Scale size={14} /> 重量
+                            </label>
+                            <div className="flex-1 flex flex-col">
+                              <div className="flex items-center justify-between mb-2">
+                                <span className="text-2xl font-bold text-[#D48C45] tabular-nums tracking-tighter">{editWeight}g</span>
+                              </div>
+                              <input 
+                                type="range" 
+                                min="30" max="90" 
+                                value={editWeight} 
+                                onChange={(e) => setEditWeight(parseInt(e.target.value))} 
+                                className="w-full h-1.5 bg-[#F9F5F0] rounded-full appearance-none cursor-pointer" 
+                              />
                             </div>
-                            <input type="range" min="30" max="90" value={editWeight} onChange={(e) => setEditWeight(parseInt(e.target.value))} className="w-full h-1.5 bg-[#F9F5F0] rounded-full appearance-none cursor-pointer" />
-                        </div>
-                        <div className="grid grid-cols-2 gap-5">
-                           <div>
-                              <label className="text-[11px] font-bold text-[#A0A0A0] uppercase tracking-wider block mb-3 px-1 cn-relaxed"><Hash size={14} /> 数量</label>
-                              <select value={editQuantity} onChange={(e) => setEditQuantity(parseInt(e.target.value))} className="w-full p-5 bg-[#F9F5F0]/60 border border-[#E5D3C5]/30 rounded-2xl outline-none font-bold text-sm text-[#2D2D2D] appearance-none">
-                                {[1, 2, 3, 4, 5].map(v => <option key={v} value={v}>{v}</option>)}
-                              </select>
-                            </div>
-                            <div>
-                                <label className="text-[11px] font-bold text-[#A0A0A0] uppercase tracking-wider block mb-3 px-1 cn-relaxed">日期</label>
-                                <input type="date" value={editDate} onChange={(e) => setEditDate(e.target.value)} className="w-full p-5 bg-[#F9F5F0]/60 border border-[#E5D3C5]/30 rounded-2xl outline-none font-bold text-[11px] text-[#2D2D2D]" />
-                            </div>
-                        </div>
-                        <button onClick={handleUpdateLog} className="w-full py-6 bg-[#D48C45] text-white rounded-[32px] font-bold text-lg shadow-2xl shadow-[#D48C45]/25 active:scale-95 flex items-center justify-center gap-3 cn-relaxed">
-                            <CheckCircle size={22} /> 保存更新
-                        </button>
+                          </div>
+
+                          {/* Quantity Row */}
+                          <div className="flex items-center gap-4 py-3">
+                            <label className="w-[60px] text-[11px] font-bold text-[#A0A0A0] uppercase tracking-wider cn-relaxed flex items-center gap-1.5">
+                              <Hash size={14} /> 数量
+                            </label>
+                            <select 
+                              value={editQuantity} 
+                              onChange={(e) => setEditQuantity(parseInt(e.target.value))} 
+                              className="flex-1 p-4 bg-[#F9F5F0]/60 border border-[#E5D3C5]/30 rounded-2xl outline-none font-bold text-sm text-[#2D2D2D] appearance-none"
+                            >
+                              {[1, 2, 3, 4, 5].map(v => <option key={v} value={v}>{v}</option>)}
+                            </select>
+                          </div>
+
+                          {/* Date Row */}
+                          <div className="flex items-center gap-4 py-3">
+                            <label className="w-[60px] text-[11px] font-bold text-[#A0A0A0] uppercase tracking-wider cn-relaxed flex items-center gap-1.5">
+                              <Calendar size={14} /> 日期
+                            </label>
+                            <input 
+                              type="date" 
+                              value={editDate} 
+                              onChange={(e) => setEditDate(e.target.value)} 
+                              className="flex-1 p-4 bg-[#F9F5F0]/60 border border-[#E5D3C5]/30 rounded-2xl outline-none font-bold text-sm text-[#2D2D2D]" 
+                            />
+                          </div>
+
+                          <div className="pt-6">
+                            <button onClick={handleUpdateLog} className="w-full py-6 bg-[#D48C45] text-white rounded-[32px] font-bold text-lg shadow-2xl shadow-[#D48C45]/25 active:scale-95 flex items-center justify-center gap-3 cn-relaxed">
+                                <CheckCircle size={22} /> 保存更新
+                            </button>
+                          </div>
+                      </div>
                     </div>
                 </motion.div>
             </motion.div>

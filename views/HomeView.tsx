@@ -131,7 +131,6 @@ const HomeView: React.FC<HomeViewProps> = ({ hens, logs, onRefresh, onNotify, on
   const [startX, setStartX] = useState(0);
   const [scrollLeft, setScrollLeft] = useState(0);
 
-  // Map to store cumulative egg counts for each hen
   const henTotals = useMemo(() => {
     const totals: Record<string, number> = {};
     logs.forEach(log => {
@@ -321,7 +320,7 @@ const HomeView: React.FC<HomeViewProps> = ({ hens, logs, onRefresh, onNotify, on
               initial={{ scale: 0.9, y: 20 }}
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.9, y: 20 }}
-              className="bg-white rounded-[40px] w-full max-sm p-10 shadow-2xl border border-[#E5D3C5]/10 relative"
+              className="bg-white rounded-[40px] w-full max-sm p-10 shadow-2xl border border-[#E5D3C5]/10 relative h-fit"
             >
               <button
                 onClick={() => setShowEntryModal(false)}
@@ -330,62 +329,66 @@ const HomeView: React.FC<HomeViewProps> = ({ hens, logs, onRefresh, onNotify, on
                 <X size={20} />
               </button>
 
-              <div className="text-center mb-10">
-                <div className="w-16 h-16 bg-[#D48C45]/10 rounded-[28px] flex items-center justify-center text-[#D48C45] mx-auto mb-4">
-                  <Egg size={32} />
-                </div>
-                <h3 className="font-serif text-3xl font-extrabold text-[#2D2D2D] tracking-tight">录入产蛋记录</h3>
-                <p className="text-[#A0A0A0] text-[11px] font-semibold uppercase tracking-wider mt-1.5 opacity-80 cn-relaxed">为 {activeHen?.name} 记录</p>
-              </div>
-
-              <div className="space-y-8">
-                <div>
-                  <div className="flex items-center justify-between mb-3 px-1">
-                    <label className="text-[11px] font-bold text-[#A0A0A0] uppercase tracking-wider flex items-center gap-2 cn-relaxed">
-                      <Scale size={14} /> 重量 (克)
-                    </label>
-                    <span className="text-2xl font-bold text-[#D48C45] tabular-nums tracking-tighter">{entryWeight}g</span>
+              <div className="flex flex-col items-start w-full">
+                <div className="flex items-center gap-4 mb-10 w-full">
+                  <div className="w-16 h-16 bg-[#D48C45]/10 rounded-[28px] flex items-center justify-center text-[#D48C45]">
+                    <Egg size={32} />
                   </div>
-                  <input
-                    type="range" min="30" max="90" value={entryWeight}
-                    onChange={(e) => setEntryWeight(parseInt(e.target.value))}
-                    className="w-full h-1.5 bg-[#F9F5F0] rounded-full appearance-none cursor-pointer"
-                  />
+                  <div className="flex flex-col items-start">
+                    <h3 className="font-serif text-3xl font-extrabold text-[#2D2D2D] tracking-tight">录入产蛋记录</h3>
+                    <p className="text-[#A0A0A0] text-[11px] font-semibold uppercase tracking-wider mt-1.5 opacity-80 cn-relaxed">为 {activeHen?.name} 记录</p>
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-5">
-                   <div>
-                    <label className="text-[11px] font-bold text-[#A0A0A0] uppercase tracking-wider block mb-2 flex items-center gap-2 cn-relaxed">
-                      <Hash size={14} /> 数量
-                    </label>
-                    <select
-                      value={entryQuantity}
-                      onChange={(e) => setEntryQuantity(parseInt(e.target.value))}
-                      className="w-full p-4 bg-[#F9F5F0]/60 border border-[#E5D3C5]/20 rounded-2xl outline-none font-bold text-sm text-[#2D2D2D] appearance-none text-center"
-                    >
-                      {[1, 2, 3, 4, 5].map(v => <option key={v} value={v}>{v}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-[11px] font-bold text-[#A0A0A0] uppercase tracking-wider block mb-2 flex items-center gap-2 cn-relaxed">
-                      <Calendar size={14} /> 产蛋日期
-                    </label>
+                <div className="space-y-8 w-full">
+                  <div className="flex flex-col items-stretch">
+                    <div className="flex items-center justify-between mb-3 px-1">
+                      <label className="text-[11px] font-bold text-[#A0A0A0] uppercase tracking-wider flex items-center gap-2 cn-relaxed">
+                        <Scale size={14} /> 重量 (克)
+                      </label>
+                      <span className="text-2xl font-bold text-[#D48C45] tabular-nums tracking-tighter">{entryWeight}g</span>
+                    </div>
                     <input
-                      type="date"
-                      value={entryDate}
-                      onChange={(e) => setEntryDate(e.target.value)}
-                      className="w-full p-4 bg-[#F9F5F0]/60 border border-[#E5D3C5]/30 rounded-2xl outline-none font-bold text-[11px] text-[#2D2D2D]"
+                      type="range" min="30" max="90" value={entryWeight}
+                      onChange={(e) => setEntryWeight(parseInt(e.target.value))}
+                      className="w-full h-1.5 bg-[#F9F5F0] rounded-full appearance-none cursor-pointer"
                     />
                   </div>
-                </div>
 
-                <button
-                  onClick={handleConfirmHarvest}
-                  className="w-full py-6 bg-[#D48C45] text-white rounded-[28px] font-bold text-xl shadow-xl shadow-[#D48C45]/20 active:scale-95 transition-all flex items-center justify-center gap-3 cn-relaxed"
-                >
-                  <Check size={24} />
-                  保存记录
-                </button>
+                  <div className="grid grid-cols-2 gap-5">
+                    <div className="flex flex-col items-start">
+                      <label className="text-[11px] font-bold text-[#A0A0A0] uppercase tracking-wider block mb-2 flex items-center gap-2 cn-relaxed">
+                        <Hash size={14} /> 数量
+                      </label>
+                      <select
+                        value={entryQuantity}
+                        onChange={(e) => setEntryQuantity(parseInt(e.target.value))}
+                        className="w-full p-4 bg-[#F9F5F0]/60 border border-[#E5D3C5]/20 rounded-2xl outline-none font-bold text-sm text-[#2D2D2D] appearance-none text-center"
+                      >
+                        {[1, 2, 3, 4, 5].map(v => <option key={v} value={v}>{v}</option>)}
+                      </select>
+                    </div>
+                    <div className="flex flex-col items-start">
+                      <label className="text-[11px] font-bold text-[#A0A0A0] uppercase tracking-wider block mb-2 flex items-center gap-2 cn-relaxed">
+                        <Calendar size={14} /> 产蛋日期
+                      </label>
+                      <input
+                        type="date"
+                        value={entryDate}
+                        onChange={(e) => setEntryDate(e.target.value)}
+                        className="w-full p-4 bg-[#F9F5F0]/60 border border-[#E5D3C5]/30 rounded-2xl outline-none font-bold text-[11px] text-[#2D2D2D]"
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={handleConfirmHarvest}
+                    className="w-full py-6 bg-[#D48C45] text-white rounded-[28px] font-bold text-xl shadow-xl shadow-[#D48C45]/20 active:scale-95 transition-all flex items-center justify-center gap-3 cn-relaxed"
+                  >
+                    <Check size={24} />
+                    保存记录
+                  </button>
+                </div>
               </div>
             </motion.div>
           </motion.div>

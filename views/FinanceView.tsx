@@ -11,18 +11,26 @@ interface FinanceViewProps {
   onNotify: (message: string, type?: 'success' | 'info') => void;
 }
 
-const ExpenseItem: React.FC<{ 
+const ExpenseItem = React.memo(({ 
+  expense, 
+  onDeleteRequest, 
+  onEdit 
+}: { 
   expense: Expense; 
   onDeleteRequest: (expense: Expense) => void; 
   onEdit: (expense: Expense) => void 
-}> = ({ expense, onDeleteRequest, onEdit }) => {
+}) => {
   const x = useMotionValue(0);
-  // Transform opacity based on leftward drag
   const opacity = useTransform(x, [-100, -20], [1, 0]);
 
   return (
-    <div className="relative overflow-hidden rounded-[32px] mb-5">
-      {/* Swipe Background (Red Delete Zone on the Right) */}
+    <motion.div 
+      layout
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.2 } }}
+      className="relative overflow-hidden rounded-[32px] mb-5"
+    >
       <motion.div 
         style={{ opacity }}
         className="absolute inset-0 bg-[#FFEBEE] flex items-center justify-end px-12 text-[#B66649] z-0"
@@ -54,7 +62,7 @@ const ExpenseItem: React.FC<{
           <div className="w-12 h-12 bg-[#F9F5F0] rounded-2xl flex items-center justify-center text-[#D48C45]">
             <Tag size={20} />
           </div>
-          <div>
+          <div className="flex flex-col items-start">
             <h3 className="font-bold text-[#2D2D2D] text-lg cn-relaxed">{expense.category}</h3>
             <p className="text-[#A0A0A0] text-[10px] font-bold uppercase tracking-widest">{expense.date}</p>
           </div>
@@ -63,9 +71,9 @@ const ExpenseItem: React.FC<{
           <span className="text-xl font-bold text-[#2D2D2D] tabular-nums">${expense.amount.toFixed(2)}</span>
         </div>
       </motion.div>
-    </div>
+    </motion.div>
   );
-};
+});
 
 const FinanceView: React.FC<FinanceViewProps> = ({ expenses, onRefresh, onNotify }) => {
   const [showModal, setShowModal] = useState(false);
@@ -143,7 +151,7 @@ const FinanceView: React.FC<FinanceViewProps> = ({ expenses, onRefresh, onNotify
   return (
     <div className="p-10 pb-44 bg-[#F9F5F0] min-h-full overflow-y-auto scroll-native">
       <div className="flex items-center justify-between mb-12">
-        <div>
+        <div className="flex flex-col items-start">
           <h1 className="font-serif text-4xl font-extrabold text-[#2D2D2D] tracking-tighter">支出记录</h1>
           <p className="text-[#A0A0A0] text-[11px] mt-2 uppercase tracking-[0.3em] font-bold cn-relaxed opacity-60">财务管理</p>
         </div>
@@ -157,23 +165,29 @@ const FinanceView: React.FC<FinanceViewProps> = ({ expenses, onRefresh, onNotify
       </div>
 
       <div className="space-y-1">
-        {expenses.length === 0 ? (
-          <div className="text-center py-20 bg-white/40 rounded-[40px] border border-dashed border-[#E5D3C5]/40">
-            <Wallet size={48} className="mx-auto text-[#A0A0A0] mb-4 opacity-20" />
-            <p className="text-[#A0A0A0] font-bold text-[11px] tracking-[0.3em] uppercase cn-relaxed">暂无支出记录</p>
-          </div>
-        ) : (
-          <AnimatePresence initial={false}>
-            {expenses.map((expense) => (
+        <AnimatePresence mode="popLayout" initial={false}>
+          {expenses.length === 0 ? (
+            <motion.div 
+              key="empty"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="text-center py-20 bg-white/40 rounded-[40px] border border-dashed border-[#E5D3C5]/40"
+            >
+              <Wallet size={48} className="mx-auto text-[#A0A0A0] mb-4 opacity-20" />
+              <p className="text-[#A0A0A0] font-bold text-[11px] tracking-[0.3em] uppercase cn-relaxed">暂无支出记录</p>
+            </motion.div>
+          ) : (
+            expenses.map((expense) => (
               <ExpenseItem 
                 key={expense.id}
                 expense={expense}
                 onEdit={handleOpenEdit}
                 onDeleteRequest={(e) => setExpenseToDelete(e)}
               />
-            ))}
-          </AnimatePresence>
-        )}
+            ))
+          )}
+        </AnimatePresence>
         
         {expenses.length > 0 && (
           <p className="text-center text-[10px] text-[#A0A0A0] font-bold uppercase tracking-[0.3em] mt-8 opacity-40 cn-relaxed">
@@ -182,7 +196,6 @@ const FinanceView: React.FC<FinanceViewProps> = ({ expenses, onRefresh, onNotify
         )}
       </div>
 
-      {/* Add / Edit Modal */}
       <AnimatePresence>
         {showModal && (
           <motion.div 
@@ -194,7 +207,7 @@ const FinanceView: React.FC<FinanceViewProps> = ({ expenses, onRefresh, onNotify
             <motion.div 
               initial={{ y: 50, scale: 0.95 }} 
               animate={{ y: 0, scale: 1 }} 
-              className="bg-white rounded-[44px] w-full max-w-md p-10 shadow-2xl relative border border-[#E5D3C5]/20"
+              className="bg-white rounded-[44px] w-full max-w-md p-10 shadow-2xl relative border border-[#E5D3C5]/20 h-fit"
             >
               <button 
                 onClick={() => setShowModal(false)} 
@@ -202,70 +215,71 @@ const FinanceView: React.FC<FinanceViewProps> = ({ expenses, onRefresh, onNotify
               >
                 <X size={24} />
               </button>
-              <h2 className="font-serif text-3xl font-extrabold text-[#2D2D2D] mb-10 tracking-tighter">
-                {editingExpense ? '修改支出' : '新增支出'}
-              </h2>
-              <form onSubmit={handleSubmit} className="space-y-8">
-                <div>
-                  <label className="text-[11px] font-bold text-[#A0A0A0] uppercase tracking-wider block mb-3 px-1 cn-relaxed">类别</label>
-                  <div className="grid grid-cols-2 gap-3">
-                    {Object.values(ExpenseCategory).map(cat => (
-                      <button
-                        key={cat}
-                        type="button"
-                        onClick={() => setCategory(cat)}
-                        className={`py-4 rounded-2xl font-bold text-xs transition-all ${
-                          category === cat 
-                            ? 'bg-[#D48C45] text-white shadow-lg' 
-                            : 'bg-[#F9F5F0] text-[#A0A0A0]'
-                        }`}
-                      >
-                        {cat}
-                      </button>
-                    ))}
+              <div className="flex flex-col items-start w-full">
+                <h2 className="font-serif text-3xl font-extrabold text-[#2D2D2D] mb-10 tracking-tighter">
+                  {editingExpense ? '修改支出' : '新增支出'}
+                </h2>
+                <form onSubmit={handleSubmit} className="space-y-8 w-full">
+                  <div className="flex flex-col items-start w-full">
+                    <label className="text-[11px] font-bold text-[#A0A0A0] uppercase tracking-wider block mb-3 px-1 cn-relaxed">类别</label>
+                    <div className="grid grid-cols-2 gap-3 w-full">
+                      {Object.values(ExpenseCategory).map(cat => (
+                        <button
+                          key={cat}
+                          type="button"
+                          onClick={() => setCategory(cat)}
+                          className={`py-4 rounded-2xl font-bold text-xs transition-all ${
+                            category === cat 
+                              ? 'bg-[#D48C45] text-white shadow-lg' 
+                              : 'bg-[#F9F5F0] text-[#A0A0A0]'
+                          }`}
+                        >
+                          {cat}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
-                <div>
-                  <label className="text-[11px] font-bold text-[#A0A0A0] uppercase tracking-wider block mb-3 px-1 cn-relaxed">金额 ($)</label>
-                  <div className="relative">
-                    <Banknote className="absolute left-4 top-1/2 -translate-y-1/2 text-[#A0A0A0]" size={18} />
-                    <input 
-                      type="number" 
-                      step="0.01"
-                      value={amount} 
-                      onChange={e => setAmount(e.target.value)} 
-                      placeholder="0.00" 
-                      className="w-full p-5 pl-12 bg-[#F9F5F0]/60 border border-[#E5D3C5]/30 rounded-2xl outline-none font-bold text-[#2D2D2D] cn-relaxed tabular-nums" 
-                      required 
-                    />
+                  <div className="flex flex-col items-start w-full">
+                    <label className="text-[11px] font-bold text-[#A0A0A0] uppercase tracking-wider block mb-3 px-1 cn-relaxed">金额 ($)</label>
+                    <div className="relative w-full">
+                      <Banknote className="absolute left-4 top-1/2 -translate-y-1/2 text-[#A0A0A0]" size={18} />
+                      <input 
+                        type="number" 
+                        step="0.01"
+                        value={amount} 
+                        onChange={e => setAmount(e.target.value)} 
+                        placeholder="0.00" 
+                        className="w-full p-5 pl-12 bg-[#F9F5F0]/60 border border-[#E5D3C5]/30 rounded-2xl outline-none font-bold text-[#2D2D2D] cn-relaxed tabular-nums" 
+                        required 
+                      />
+                    </div>
                   </div>
-                </div>
-                <div>
-                  <label className="text-[11px] font-bold text-[#A0A0A0] uppercase tracking-wider block mb-3 px-1 cn-relaxed">日期</label>
-                  <div className="relative">
-                    <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-[#A0A0A0]" size={18} />
-                    <input 
-                      type="date" 
-                      value={date} 
-                      onChange={e => setDate(e.target.value)} 
-                      className="w-full p-5 pl-12 bg-[#F9F5F0]/60 border border-[#E5D3C5]/30 rounded-2xl outline-none font-bold text-[#2D2D2D] cn-relaxed" 
-                    />
+                  <div className="flex flex-col items-start w-full">
+                    <label className="text-[11px] font-bold text-[#A0A0A0] uppercase tracking-wider block mb-3 px-1 cn-relaxed">日期</label>
+                    <div className="relative w-full">
+                      <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-[#A0A0A0]" size={18} />
+                      <input 
+                        type="date" 
+                        value={date} 
+                        onChange={e => setDate(e.target.value)} 
+                        className="w-full p-5 pl-12 bg-[#F9F5F0]/60 border border-[#E5D3C5]/30 rounded-2xl outline-none font-bold text-[#2D2D2D] cn-relaxed" 
+                      />
+                    </div>
                   </div>
-                </div>
-                <button 
-                  type="submit" 
-                  className="w-full py-6 bg-[#D48C45] text-white rounded-[32px] font-bold text-lg shadow-xl shadow-[#D48C45]/20 active:scale-95 transition-transform cn-relaxed flex items-center justify-center gap-3"
-                >
-                  <CheckCircle size={22} />
-                  {editingExpense ? '保存修改' : '保存记录'}
-                </button>
-              </form>
+                  <button 
+                    type="submit" 
+                    className="w-full py-6 bg-[#D48C45] text-white rounded-[32px] font-bold text-lg shadow-xl shadow-[#D48C45]/20 active:scale-95 transition-transform cn-relaxed flex items-center justify-center gap-3"
+                  >
+                    <CheckCircle size={22} />
+                    {editingExpense ? '保存修改' : '保存记录'}
+                  </button>
+                </form>
+              </div>
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Delete Confirmation Modal */}
       <AnimatePresence>
         {expenseToDelete && (
           <motion.div 
@@ -277,7 +291,7 @@ const FinanceView: React.FC<FinanceViewProps> = ({ expenses, onRefresh, onNotify
             <motion.div 
               initial={{ scale: 0.9, y: 30 }} 
               animate={{ scale: 1, y: 0 }} 
-              className="bg-white rounded-[44px] w-full max-w-sm p-10 shadow-2xl relative border border-[#E5D3C5]/20 text-center"
+              className="bg-white rounded-[44px] w-full max-w-sm p-10 shadow-2xl relative border border-[#E5D3C5]/20 text-center h-fit"
             >
               <div className="w-16 h-16 bg-[#B66649]/10 rounded-[28px] flex items-center justify-center text-[#B66649] mx-auto mb-6">
                 <AlertTriangle size={32} />
