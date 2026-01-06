@@ -21,9 +21,10 @@ interface StatisticsViewProps {
 
 const LogItem: React.FC<{ 
   log: EggLog; 
+  henName: string;
   onDeleteRequest: (id: string) => void; 
   onEdit: (log: EggLog) => void 
-}> = ({ log, onDeleteRequest, onEdit }) => {
+}> = ({ log, henName, onDeleteRequest, onEdit }) => {
   const x = useMotionValue(0);
   const opacity = useTransform(x, [-100, -20], [1, 0]);
 
@@ -59,7 +60,7 @@ const LogItem: React.FC<{
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h5 className="font-bold text-[#2D2D2D] text-lg leading-tight tracking-tight cn-relaxed">{log.henName}</h5>
+              <h5 className="font-bold text-[#2D2D2D] text-lg leading-tight tracking-tight cn-relaxed">{henName}</h5>
               {log.quantity > 1 && (
                 <span className="text-[9px] bg-[#D48C45] text-white px-2 py-0.5 rounded-full font-bold">×{log.quantity}</span>
               )}
@@ -115,6 +116,13 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, expenses, o
       }
     });
   }, []);
+
+  // Map hen ID to its current name for consistent display
+  const henNameMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    hens.forEach(h => { map[h.id] = h.name; });
+    return map;
+  }, [hens]);
 
   // Auto-save logic for eggPrice
   const handlePriceChange = (newPrice: number) => {
@@ -201,14 +209,20 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, expenses, o
 
     const pieData = Object.entries(expByCategory).map(([name, value]) => ({ name, value }));
 
+    // Grouping by henId ensures that renaming a hen doesn't split their statistics
     const henCounts = activeLogs.reduce((acc, l) => {
-      acc[l.henName] = (acc[l.henName] || 0) + (l.quantity || 1);
+      const id = l.henId;
+      acc[id] = (acc[id] || 0) + (l.quantity || 1);
       return acc;
     }, {} as Record<string, number>);
 
     const rankings = Object.entries(henCounts)
       .sort((a, b) => b[1] - a[1])
-      .map(([name, count]) => ({ name, count }));
+      .map(([id, count]) => ({ 
+        id, 
+        name: henNameMap[id] || '已移除的母鸡', // Fallback name if hen was deleted
+        count 
+      }));
 
     return { 
       activeLogs,
@@ -222,7 +236,7 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, expenses, o
       costPerEgg,
       pieData
     };
-  }, [logs, expenses, activeWindow, timeRange, eggPrice]);
+  }, [logs, expenses, activeWindow, timeRange, eggPrice, henNameMap]);
 
   const handleDeleteLog = async () => {
     if (!logToDeleteId) return;
@@ -439,7 +453,7 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, expenses, o
         {stats.rankings.length > 0 ? (
           <div className="space-y-6">
             {stats.rankings.map((hen, idx) => (
-              <div key={hen.name} className="flex items-center gap-4">
+              <div key={hen.id} className="flex items-center gap-4">
                 <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold text-xs ${
                   idx === 0 ? 'bg-[#D48C45] text-white' : 'bg-[#F9F5F0] text-[#A0A0A0]'
                 }`}>
@@ -492,6 +506,7 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, expenses, o
               <LogItem 
                 key={log.id} 
                 log={log} 
+                henName={henNameMap[log.henId] || log.henName} // Use the latest name if available
                 onDeleteRequest={(id) => setLogToDeleteId(id)} 
                 onEdit={(l) => {
                   setEditingLog(l);
