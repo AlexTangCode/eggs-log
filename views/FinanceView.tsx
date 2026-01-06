@@ -152,8 +152,8 @@ const FinanceView: React.FC<FinanceViewProps> = ({ expenses, onRefresh, onNotify
     <div className="p-10 pb-44 bg-[#F9F5F0] min-h-full overflow-y-auto scroll-native">
       <div className="flex items-center justify-between mb-12">
         <div className="flex flex-col items-start">
-          <h1 className="font-serif text-4xl font-extrabold text-[#2D2D2D] tracking-tighter">支出记录</h1>
-          <p className="text-[#A0A0A0] text-[11px] mt-2 uppercase tracking-[0.3em] font-bold cn-relaxed opacity-60">财务管理</p>
+          <h1 className="font-serif text-4xl font-extrabold text-[#2D2D2D] tracking-tighter">Chloes Chicken</h1>
+          <p className="text-[#A0A0A0] text-[11px] mt-2 uppercase tracking-[0.3em] font-bold cn-relaxed opacity-60">支出记录管理</p>
         </div>
         <motion.button 
           whileTap={{ scale: 0.9 }} 
@@ -202,36 +202,39 @@ const FinanceView: React.FC<FinanceViewProps> = ({ expenses, onRefresh, onNotify
             initial={{ opacity: 0 }} 
             animate={{ opacity: 1 }} 
             exit={{ opacity: 0 }} 
-            className="fixed inset-0 z-[150] bg-[#2D2D2D]/10 backdrop-blur-2xl flex items-center justify-center p-8"
+            className="fixed inset-0 z-[150] bg-[#2D2D2D]/10 backdrop-blur-2xl flex items-center justify-center p-6"
           >
             <motion.div 
               initial={{ y: 50, scale: 0.95 }} 
               animate={{ y: 0, scale: 1 }} 
-              className="bg-white rounded-[44px] w-full max-w-md p-10 shadow-2xl relative border border-[#E5D3C5]/20 h-fit"
+              className="bg-white rounded-[44px] w-full max-w-md p-10 shadow-2xl relative border border-[#E5D3C5]/20 h-fit max-h-[90vh] overflow-y-auto scroll-native"
             >
               <button 
                 onClick={() => setShowModal(false)} 
-                className="absolute top-10 right-10 text-gray-300 hover:text-[#2D2D2D]"
+                className="absolute top-8 right-8 text-gray-300 hover:text-[#2D2D2D] transition-colors"
               >
                 <X size={24} />
               </button>
+              
               <div className="flex flex-col items-start w-full">
                 <h2 className="font-serif text-3xl font-extrabold text-[#2D2D2D] mb-10 tracking-tighter">
                   {editingExpense ? '修改支出' : '新增支出'}
                 </h2>
+                
                 <form onSubmit={handleSubmit} className="space-y-8 w-full">
-                  <div className="flex flex-col items-start w-full">
-                    <label className="text-[11px] font-bold text-[#A0A0A0] uppercase tracking-wider block mb-3 px-1 cn-relaxed">类别</label>
-                    <div className="grid grid-cols-2 gap-3 w-full">
+                  {/* Category Row */}
+                  <div className="flex items-start gap-4 w-full">
+                    <label className="w-20 flex-shrink-0 text-[10px] font-bold text-[#A0A0A0] uppercase tracking-wider pt-3 cn-relaxed">类别</label>
+                    <div className="flex-1 grid grid-cols-2 gap-2">
                       {Object.values(ExpenseCategory).map(cat => (
                         <button
                           key={cat}
                           type="button"
                           onClick={() => setCategory(cat)}
-                          className={`py-4 rounded-2xl font-bold text-xs transition-all ${
+                          className={`py-3 rounded-2xl font-bold text-[10px] transition-all uppercase tracking-wider ${
                             category === cat 
-                              ? 'bg-[#D48C45] text-white shadow-lg' 
-                              : 'bg-[#F9F5F0] text-[#A0A0A0]'
+                              ? 'bg-[#D48C45] text-white shadow-lg shadow-[#D48C45]/20' 
+                              : 'bg-[#F9F5F0] text-[#A0A0A0] border border-[#E5D3C5]/20'
                           }`}
                         >
                           {cat}
@@ -239,9 +242,11 @@ const FinanceView: React.FC<FinanceViewProps> = ({ expenses, onRefresh, onNotify
                       ))}
                     </div>
                   </div>
-                  <div className="flex flex-col items-start w-full">
-                    <label className="text-[11px] font-bold text-[#A0A0A0] uppercase tracking-wider block mb-3 px-1 cn-relaxed">金额 ($)</label>
-                    <div className="relative w-full">
+
+                  {/* Amount Row */}
+                  <div className="flex items-center gap-4 w-full">
+                    <label className="w-20 flex-shrink-0 text-[10px] font-bold text-[#A0A0A0] uppercase tracking-wider cn-relaxed">金额 ($)</label>
+                    <div className="flex-1 relative min-w-0">
                       <Banknote className="absolute left-4 top-1/2 -translate-y-1/2 text-[#A0A0A0]" size={18} />
                       <input 
                         type="number" 
@@ -249,30 +254,36 @@ const FinanceView: React.FC<FinanceViewProps> = ({ expenses, onRefresh, onNotify
                         value={amount} 
                         onChange={e => setAmount(e.target.value)} 
                         placeholder="0.00" 
-                        className="w-full p-5 pl-12 bg-[#F9F5F0]/60 border border-[#E5D3C5]/30 rounded-2xl outline-none font-bold text-[#2D2D2D] cn-relaxed tabular-nums" 
+                        className="w-full p-4 pl-12 bg-[#F9F5F0]/60 border border-[#E5D3C5]/30 rounded-2xl outline-none font-bold text-[#2D2D2D] cn-relaxed tabular-nums text-sm" 
                         required 
                       />
                     </div>
                   </div>
-                  <div className="flex flex-col items-start w-full">
-                    <label className="text-[11px] font-bold text-[#A0A0A0] uppercase tracking-wider block mb-3 px-1 cn-relaxed">日期</label>
-                    <div className="relative w-full">
+
+                  {/* Date Row */}
+                  <div className="flex items-center gap-4 w-full">
+                    <label className="w-20 flex-shrink-0 text-[10px] font-bold text-[#A0A0A0] uppercase tracking-wider cn-relaxed">日期</label>
+                    <div className="flex-1 relative min-w-0">
                       <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-[#A0A0A0]" size={18} />
                       <input 
                         type="date" 
                         value={date} 
                         onChange={e => setDate(e.target.value)} 
-                        className="w-full p-5 pl-12 bg-[#F9F5F0]/60 border border-[#E5D3C5]/30 rounded-2xl outline-none font-bold text-[#2D2D2D] cn-relaxed" 
+                        className="w-full p-4 pl-12 bg-[#F9F5F0]/60 border border-[#E5D3C5]/30 rounded-2xl outline-none font-bold text-[#2D2D2D] cn-relaxed text-sm truncate" 
                       />
                     </div>
                   </div>
-                  <button 
-                    type="submit" 
-                    className="w-full py-6 bg-[#D48C45] text-white rounded-[32px] font-bold text-lg shadow-xl shadow-[#D48C45]/20 active:scale-95 transition-transform cn-relaxed flex items-center justify-center gap-3"
-                  >
-                    <CheckCircle size={22} />
-                    {editingExpense ? '保存修改' : '保存记录'}
-                  </button>
+
+                  {/* Action Button */}
+                  <div className="pt-4">
+                    <button 
+                      type="submit" 
+                      className="w-full py-6 bg-[#D48C45] text-white rounded-[32px] font-bold text-lg shadow-xl shadow-[#D48C45]/20 active:scale-95 transition-transform cn-relaxed flex items-center justify-center gap-3"
+                    >
+                      <CheckCircle size={22} />
+                      {editingExpense ? '保存修改' : '保存记录'}
+                    </button>
+                  </div>
                 </form>
               </div>
             </motion.div>
@@ -297,10 +308,10 @@ const FinanceView: React.FC<FinanceViewProps> = ({ expenses, onRefresh, onNotify
                 <AlertTriangle size={32} />
               </div>
               <h2 className="font-serif text-2xl font-extrabold text-[#2D2D2D] mb-4 tracking-tighter">
-                确认删除此笔支出？
+                确认删除？
               </h2>
               <p className="text-sm text-[#A0A0A0] leading-relaxed mb-8 font-medium cn-relaxed">
-                删除后将重新计算您的净利润。确定要删除吗？
+                删除后将重新计算您的净利润。确定要删除此笔支出吗？
               </p>
               <div className="grid grid-cols-2 gap-4">
                 <button 
@@ -313,7 +324,7 @@ const FinanceView: React.FC<FinanceViewProps> = ({ expenses, onRefresh, onNotify
                   onClick={handleDelete}
                   className="py-4 bg-[#D48C45] text-white rounded-[24px] font-bold text-sm shadow-lg shadow-[#D48C45]/20 transition-transform active:scale-95 cn-relaxed"
                 >
-                  删除
+                  确认删除
                 </button>
               </div>
             </motion.div>
