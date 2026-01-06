@@ -1,10 +1,16 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, BarChart, Bar, Cell, PieChart, Pie } from 'recharts';
 import { Hen, EggLog, Expense, ExpenseCategory } from '../types';
-import { Scale, Egg, TrendingUp, Edit3, Trash2, X, Clock, ListFilter, Hash, CheckCircle, AlertTriangle, Trophy, CalendarDays, ArrowUpRight, ArrowDownRight, CalendarRange, Coins, Landmark, ReceiptText } from 'lucide-react';
-import { deleteEggLog, updateEggLogDetailed } from '../services/firebase';
+import { 
+  Scale, Egg, TrendingUp, Edit3, Trash2, X, Clock, ListFilter, Hash, 
+  CheckCircle, AlertTriangle, Trophy, CalendarDays, Coins, 
+  ReceiptText, ChevronLeft, ChevronRight, Save
+} from 'lucide-react';
+import { 
+  deleteEggLog, updateEggLogDetailed, getGlobalSettings, updateGlobalSettings 
+} from '../services/firebase';
 
 interface StatisticsViewProps {
   hens: Hen[];
@@ -84,49 +90,103 @@ const LogItem: React.FC<{
 };
 
 const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, expenses, onRefresh }) => {
-  const [timeRange, setTimeRange] = useState<'month' | 'year' | 'all'>('month');
+  const [timeRange, setTimeRange] = useState<'week' | 'month' | 'all'>('week');
+  const [offset, setOffset] = useState(0); // Navigation offset
+  
   const [editingLog, setEditingLog] = useState<EggLog | null>(null);
   const [logToDeleteId, setLogToDeleteId] = useState<string | null>(null);
   const [showFullHistory, setShowFullHistory] = useState(false);
-  const [eggPrice, setEggPrice] = useState(1.5); // Default price $1.5
+  
+  const [eggPrice, setEggPrice] = useState(1.5);
+  const [isSavingPrice, setIsSavingPrice] = useState(false);
   
   const [editWeight, setEditWeight] = useState<number>(0);
   const [editQuantity, setEditQuantity] = useState<number>(1);
   const [editDate, setEditDate] = useState<string>('');
   const [editTime, setEditTime] = useState<string>('');
 
+  // Initial load of global settings
+  useEffect(() => {
+    getGlobalSettings().then(settings => {
+      if (settings && settings.eggPrice) {
+        setEggPrice(settings.eggPrice);
+      }
+    });
+  }, []);
+
+  const savePrice = async () => {
+    setIsSavingPrice(true);
+    try {
+      await updateGlobalSettings({ eggPrice });
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsSavingPrice(false);
+    }
+  };
+
+  const periodLabel = useMemo(() => {
+    const d = new Date();
+    if (timeRange === 'all') return '所有时间';
+    
+    if (timeRange === 'month') {
+      d.setMonth(d.getMonth() + offset);
+      return d.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long' });
+    } else {
+      // Weekly logic: Get start of current week, add offset * 7 days
+      const currentDay = d.getDay() === 0 ? 7 : d.getDay();
+      d.setDate(d.getDate() - (currentDay - 1) + (offset * 7));
+      const end = new Date(d);
+      end.setDate(end.getDate() + 6);
+      return `${d.toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' })} - ${end.toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' })}`;
+    }
+  }, [timeRange, offset]);
+
+  const activeWindow = useMemo(() => {
+    if (timeRange === 'all') return null;
+    
+    const start = new Date();
+    const end = new Date();
+    
+    if (timeRange === 'month') {
+      start.setMonth(start.getMonth() + offset);
+      start.setDate(1);
+      start.setHours(0, 0, 0, 0);
+      
+      end.setMonth(start.getMonth() + 1);
+      end.setDate(1);
+      end.setHours(0, 0, 0, 0);
+    } else {
+      const currentDay = start.getDay() === 0 ? 7 : start.getDay();
+      start.setDate(start.getDate() - (currentDay - 1) + (offset * 7));
+      start.setHours(0, 0, 0, 0);
+      
+      end.setDate(start.getDate() + 7);
+      end.setHours(0, 0, 0, 0);
+    }
+    
+    return { start: start.getTime(), end: end.getTime() };
+  }, [timeRange, offset]);
+
   const stats = useMemo(() => {
-    const now = new Date();
-    const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth();
-
-    const startOfCurrentMonth = new Date(currentYear, currentMonth, 1).getTime();
-    const startOfCurrentYear = new Date(currentYear, 0, 1).getTime();
-
     let activeLogs = logs;
     let activeExpenses = expenses;
 
-    if (timeRange === 'month') {
-      activeLogs = logs.filter(l => l.timestamp >= startOfCurrentMonth);
-      activeExpenses = expenses.filter(e => e.timestamp >= startOfCurrentMonth);
-    } else if (timeRange === 'year') {
-      activeLogs = logs.filter(l => l.timestamp >= startOfCurrentYear);
-      activeExpenses = expenses.filter(e => e.timestamp >= startOfCurrentYear);
+    if (activeWindow) {
+      activeLogs = logs.filter(l => l.timestamp >= activeWindow.start && l.timestamp < activeWindow.end);
+      activeExpenses = expenses.filter(e => e.timestamp >= activeWindow.start && e.timestamp < activeWindow.end);
     }
-    // 'all' uses all logs and expenses without filtering
     
     const activeTotal: number = activeLogs.reduce((acc: number, l) => acc + (l.quantity || 1), 0);
     const totalEggs: number = logs.reduce((acc: number, l) => acc + (l.quantity || 1), 0);
     const totalWeight: number = logs.reduce((acc: number, l: EggLog) => acc + (Number(l.weight) * (Number(l.quantity) || 1)), 0);
     const avgWeight = totalEggs > 0 ? Math.round(totalWeight / totalEggs) : 0;
 
-    // Financial calculations based on selected active range
     const totalExp = activeExpenses.reduce((acc, e) => acc + e.amount, 0);
     const totalRev = activeTotal * eggPrice;
     const netProfit = totalRev - totalExp;
     const costPerEgg = activeTotal > 0 ? (totalExp / activeTotal).toFixed(2) : '0.00';
 
-    // Pie chart data
     const expByCategory = activeExpenses.reduce((acc, e) => {
       acc[e.category] = (acc[e.category] || 0) + e.amount;
       return acc;
@@ -144,6 +204,7 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, expenses, o
       .map(([name, count]) => ({ name, count }));
 
     return { 
+      activeLogs,
       activeTotal, 
       totalEggs, 
       avgWeight, 
@@ -154,7 +215,7 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, expenses, o
       costPerEgg,
       pieData
     };
-  }, [logs, expenses, timeRange, eggPrice]);
+  }, [logs, expenses, activeWindow, timeRange, eggPrice]);
 
   const handleDeleteLog = async () => {
     if (!logToDeleteId) return;
@@ -184,12 +245,12 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, expenses, o
     }
   };
 
-  const displayedLogs = showFullHistory ? logs : logs.slice(0, 10);
+  const displayedLogs = showFullHistory ? stats.activeLogs : stats.activeLogs.slice(0, 10);
 
   const getRangeBgStyle = () => {
     switch (timeRange) {
-      case 'month': return { left: '6px', width: 'calc(33.33% - 6px)' };
-      case 'year': return { left: '33.33%', width: '33.33%' };
+      case 'week': return { left: '6px', width: 'calc(33.33% - 6px)' };
+      case 'month': return { left: '33.33%', width: '33.33%' };
       case 'all': return { left: '66.66%', width: 'calc(33.33% - 6px)' };
       default: return { left: '6px', width: 'calc(33.33% - 6px)' };
     }
@@ -201,24 +262,30 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, expenses, o
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-4xl font-extrabold text-[#2D2D2D] tracking-tighter font-serif">产蛋实验室</h1>
-            <p className="text-[#A0A0A0] text-[10px] mt-2 uppercase tracking-[0.4em] font-semibold cn-relaxed opacity-60">历史与分析</p>
+            <p className="text-[#A0A0A0] text-[10px] mt-2 uppercase tracking-[0.4em] font-semibold cn-relaxed opacity-60">数据透视</p>
           </div>
-          <div className="bg-white/50 border border-[#E5D3C5]/20 p-4 rounded-3xl flex flex-col items-end">
-            <span className="text-[8px] font-bold text-[#A0A0A0] uppercase tracking-widest mb-1">单蛋定价</span>
-            <div className="flex items-center gap-1">
-              <span className="text-sm font-bold text-[#D48C45]">$</span>
+          <div className="bg-white p-4 rounded-3xl border border-[#E5D3C5]/20 flex flex-col items-end shadow-sm">
+            <span className="text-[8px] font-bold text-[#A0A0A0] uppercase tracking-widest mb-1">单个蛋价 ($)</span>
+            <div className="flex items-center gap-2">
               <input 
                 type="number" 
                 step="0.1" 
                 value={eggPrice} 
                 onChange={(e) => setEggPrice(Number(e.target.value))}
-                className="w-12 bg-transparent outline-none font-bold text-lg text-[#2D2D2D] tabular-nums"
+                className="w-10 bg-transparent outline-none font-bold text-lg text-[#2D2D2D] tabular-nums text-right"
               />
+              <button 
+                onClick={savePrice}
+                disabled={isSavingPrice}
+                className={`p-1.5 rounded-lg transition-colors ${isSavingPrice ? 'text-[#D48C45] animate-pulse' : 'text-[#A0A0A0] hover:text-[#D48C45]'}`}
+              >
+                <Save size={16} />
+              </button>
             </div>
           </div>
         </div>
 
-        <div className="bg-white p-1.5 rounded-[24px] border border-[#E5D3C5]/20 shadow-[0_4px_20px_rgba(45,45,45,0.02)] flex relative overflow-hidden h-14">
+        <div className="bg-white p-1.5 rounded-[24px] border border-[#E5D3C5]/20 shadow-sm flex relative overflow-hidden h-14">
           <motion.div 
             layoutId="range-bg"
             className="absolute top-1.5 bottom-1.5 bg-[#D48C45] rounded-[18px]"
@@ -227,24 +294,36 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, expenses, o
             transition={{ type: "spring", stiffness: 400, damping: 30 }}
           />
           <button 
-            onClick={() => setTimeRange('month')}
+            onClick={() => { setTimeRange('week'); setOffset(0); }}
+            className={`flex-1 py-3 text-[11px] font-bold uppercase tracking-wider relative z-10 transition-colors cn-relaxed ${timeRange === 'week' ? 'text-white' : 'text-[#A0A0A0]'}`}
+          >
+            周度
+          </button>
+          <button 
+            onClick={() => { setTimeRange('month'); setOffset(0); }}
             className={`flex-1 py-3 text-[11px] font-bold uppercase tracking-wider relative z-10 transition-colors cn-relaxed ${timeRange === 'month' ? 'text-white' : 'text-[#A0A0A0]'}`}
           >
             月度
           </button>
           <button 
-            onClick={() => setTimeRange('year')}
-            className={`flex-1 py-3 text-[11px] font-bold uppercase tracking-wider relative z-10 transition-colors cn-relaxed ${timeRange === 'year' ? 'text-white' : 'text-[#A0A0A0]'}`}
-          >
-            年度
-          </button>
-          <button 
-            onClick={() => setTimeRange('all')}
+            onClick={() => { setTimeRange('all'); setOffset(0); }}
             className={`flex-1 py-3 text-[11px] font-bold uppercase tracking-wider relative z-10 transition-colors cn-relaxed ${timeRange === 'all' ? 'text-white' : 'text-[#A0A0A0]'}`}
           >
             所有时间
           </button>
         </div>
+
+        {timeRange !== 'all' && (
+          <div className="flex items-center justify-between bg-white/50 border border-[#E5D3C5]/10 rounded-2xl p-4">
+            <button onClick={() => setOffset(o => o - 1)} className="p-2 text-[#D48C45] hover:bg-[#D48C45]/10 rounded-full transition-all active:scale-90">
+              <ChevronLeft size={24} />
+            </button>
+            <div className="text-sm font-bold text-[#2D2D2D] cn-relaxed tracking-tight">{periodLabel}</div>
+            <button onClick={() => setOffset(o => o + 1)} className="p-2 text-[#D48C45] hover:bg-[#D48C45]/10 rounded-full transition-all active:scale-90">
+              <ChevronRight size={24} />
+            </button>
+          </div>
+        )}
       </header>
 
       {/* Financial Summary Card */}
@@ -254,23 +333,23 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, expenses, o
             <Coins size={20} />
           </div>
           <span className="text-[11px] font-bold text-[#2D2D2D] uppercase tracking-wider cn-relaxed">
-            财务简报 ({timeRange === 'all' ? '所有时间' : timeRange === 'year' ? '本年度' : '本月度'})
+            财务概览
           </span>
         </div>
 
         <div className="grid grid-cols-2 gap-8 mb-10">
           <div>
             <span className="text-[10px] font-bold text-[#A0A0A0] uppercase tracking-wider block mb-2">总支出</span>
-            <div className="text-3xl font-bold text-red-500 tabular-nums">${stats.totalExp.toFixed(1)}</div>
+            <div className="text-3xl font-bold text-red-500 tabular-nums">${stats.totalExp.toFixed(2)}</div>
           </div>
           <div>
-            <span className="text-[10px] font-bold text-[#A0A0A0] uppercase tracking-wider block mb-2">总估值</span>
-            <div className="text-3xl font-bold text-green-600 tabular-nums">${stats.totalRev.toFixed(1)}</div>
+            <span className="text-[10px] font-bold text-[#A0A0A0] uppercase tracking-wider block mb-2">总收益</span>
+            <div className="text-3xl font-bold text-green-600 tabular-nums">${stats.totalRev.toFixed(2)}</div>
           </div>
           <div>
             <span className="text-[10px] font-bold text-[#A0A0A0] uppercase tracking-wider block mb-2">净利润</span>
             <div className={`text-3xl font-bold tabular-nums ${stats.netProfit >= 0 ? 'text-green-600' : 'text-red-500'}`}>
-              ${stats.netProfit.toFixed(1)}
+              ${stats.netProfit.toFixed(2)}
             </div>
           </div>
           <div>
@@ -280,10 +359,9 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, expenses, o
         </div>
 
         {stats.pieData.length > 0 && (
-          <div className="h-48 w-full mt-4 flex items-center justify-center relative">
+          <div className="h-40 w-full mt-4 flex items-center justify-center relative">
              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                <span className="text-[8px] font-bold text-[#A0A0A0] uppercase tracking-widest">支出构成</span>
-                <ReceiptText size={16} className="text-[#D48C45] opacity-20 mt-1" />
+                <ReceiptText size={16} className="text-[#D48C45] opacity-20" />
              </div>
              <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
@@ -291,8 +369,8 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, expenses, o
                     data={stats.pieData}
                     cx="50%"
                     cy="50%"
-                    innerRadius={60}
-                    outerRadius={80}
+                    innerRadius={50}
+                    outerRadius={70}
                     paddingAngle={5}
                     dataKey="value"
                   >
@@ -310,13 +388,13 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, expenses, o
       </div>
 
       {/* Production Card */}
-      <div className="bg-white p-10 rounded-[48px] border border-[#E5D3C5]/20 shadow-[0_30px_70px_rgba(45,45,45,0.04)] mb-8 relative overflow-hidden">
+      <div className="bg-white p-10 rounded-[48px] border border-[#E5D3C5]/20 shadow-sm mb-8 relative overflow-hidden">
         <div className="flex items-center gap-3 mb-8">
           <div className="w-10 h-10 bg-[#D48C45]/10 rounded-2xl flex items-center justify-center text-[#D48C45]">
             <CalendarDays size={20} />
           </div>
           <span className="text-[11px] font-bold text-[#D48C45] uppercase tracking-wider cn-relaxed">
-            {timeRange === 'all' ? '累计产量' : timeRange === 'month' ? '月度产量' : '年度产量'}
+            该时段产量
           </span>
         </div>
 
@@ -326,7 +404,7 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, expenses, o
               {stats.activeTotal}
             </div>
             <p className="text-[#A0A0A0] text-[11px] font-semibold uppercase tracking-wider mt-3 cn-relaxed opacity-70">
-              {timeRange === 'all' ? '所有记录总计' : timeRange === 'month' ? '本月共计' : '本年共计'}
+              枚记录
             </p>
           </div>
         </div>
@@ -335,21 +413,21 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, expenses, o
 
         <div className="flex justify-around items-center">
           <div className="text-center">
-             <span className="text-[10px] font-bold text-[#A0A0A0] uppercase tracking-wider block mb-1 cn-relaxed">历史总产量</span>
+             <span className="text-[10px] font-bold text-[#A0A0A0] uppercase tracking-wider block mb-1 cn-relaxed">历史总量</span>
              <div className="text-xl font-bold text-[#2D2D2D] tabular-nums">{stats.totalEggs}</div>
           </div>
           <div className="w-[1px] h-8 bg-[#E5D3C5]/30" />
           <div className="text-center">
              <span className="text-[10px] font-bold text-[#A0A0A0] uppercase tracking-wider block mb-1 cn-relaxed">全期平均</span>
-             <div className="text-xl font-bold text-[#2D2D2D] tabular-nums">{stats.avgWeight}克</div>
+             <div className="text-xl font-bold text-[#2D2D2D] tabular-nums">{stats.avgWeight}g</div>
           </div>
         </div>
       </div>
 
-      <div className="bg-white p-10 rounded-[48px] border border-[#E5D3C5]/20 shadow-[0_20px_50px_rgba(45,45,45,0.02)] mb-8">
+      <div className="bg-white p-10 rounded-[48px] border border-[#E5D3C5]/20 shadow-sm mb-8">
         <div className="flex items-center justify-between mb-8">
           <span className="text-[11px] font-bold text-[#A0A0A0] uppercase tracking-wider flex items-center gap-2 cn-relaxed">
-            <Trophy size={14} className="text-[#D48C45]" /> {timeRange === 'all' ? '终身产蛋榜' : timeRange === 'month' ? '月度产蛋榜' : '年度产蛋榜'}
+            <Trophy size={14} className="text-[#D48C45]" /> 产蛋达人榜
           </span>
         </div>
 
@@ -371,7 +449,6 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, expenses, o
                     <motion.div 
                       initial={{ width: 0 }}
                       animate={{ width: `${(hen.count / stats.rankings[0].count) * 100}%` }}
-                      // Fixed property 'base' to 'ease' for Framer Motion transition
                       transition={{ duration: 0.8, ease: "easeOut" }}
                       className="h-full bg-[#D48C45] rounded-full"
                     />
@@ -381,29 +458,29 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, expenses, o
             ))}
           </div>
         ) : (
-          <p className="text-[#A0A0A0] text-sm italic text-center py-4 cn-relaxed">该时间段内暂无记录。</p>
+          <p className="text-[#A0A0A0] text-sm italic text-center py-4 cn-relaxed">当前时段暂无记录。</p>
         )}
       </div>
 
       <div className="mb-8 flex items-center justify-between px-2">
         <p className="text-[#A0A0A0] text-[11px] uppercase tracking-wider font-bold flex items-center gap-2 cn-relaxed">
-           <ListFilter size={14} /> 产蛋日志
+           <ListFilter size={14} /> 产蛋详细日志
         </p>
-        {logs.length > 10 && (
+        {stats.activeLogs.length > 10 && (
           <button 
             onClick={() => setShowFullHistory(!showFullHistory)}
             className="text-[10px] font-bold text-[#D48C45] uppercase tracking-wider bg-[#D48C45]/10 px-5 py-2 rounded-full active:scale-95 transition-transform cn-relaxed"
           >
-            {showFullHistory ? "收起" : "展开全部"}
+            {showFullHistory ? "收起" : "展开"}
           </button>
         )}
       </div>
 
       <div className="mb-20">
         <AnimatePresence initial={false}>
-          {logs.length === 0 ? (
+          {stats.activeLogs.length === 0 ? (
             <div className="text-center py-24 bg-white/40 rounded-[48px] border border-dashed border-[#E5D3C5]/40 text-[#A0A0A0] text-sm font-medium cn-relaxed">
-              日志目前为空。
+              当前时段暂无产蛋数据。
             </div>
           ) : (
             displayedLogs.map((log) => (
@@ -425,13 +502,14 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, expenses, o
         </AnimatePresence>
       </div>
 
+      {/* Delete Confirmation */}
       <AnimatePresence>
         {logToDeleteId && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[500] bg-[#2D2D2D]/20 backdrop-blur-3xl flex items-center justify-center p-8">
             <motion.div initial={{ scale: 0.9, y: 30 }} animate={{ scale: 1, y: 0 }} className="bg-white rounded-[44px] w-full max-sm p-10 shadow-2xl relative border border-[#E5D3C5]/20 text-center">
               <div className="w-16 h-16 bg-[#B66649]/10 rounded-[28px] flex items-center justify-center text-[#B66649] mx-auto mb-6"><AlertTriangle size={32} /></div>
               <h2 className="font-serif text-2xl font-bold text-[#2D2D2D] mb-4 tracking-tighter">确认删除记录？</h2>
-              <p className="text-sm text-[#A0A0A0] leading-relaxed mb-8 font-medium cn-relaxed">该记录将从日志中永久移除。</p>
+              <p className="text-sm text-[#A0A0A0] leading-relaxed mb-8 font-medium cn-relaxed">记录删除后无法恢复。</p>
               <div className="grid grid-cols-2 gap-4">
                 <button onClick={() => setLogToDeleteId(null)} className="py-4 bg-[#F9F5F0] text-[#2D2D2D] rounded-[24px] font-bold text-sm active:scale-95 cn-relaxed">取消</button>
                 <button onClick={handleDeleteLog} className="py-4 bg-[#D48C45] text-white rounded-[24px] font-bold text-sm shadow-lg shadow-[#D48C45]/20 active:scale-95 cn-relaxed">删除</button>
@@ -441,16 +519,17 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, expenses, o
         )}
       </AnimatePresence>
 
+      {/* Edit Modal */}
       <AnimatePresence>
         {editingLog && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[400] bg-[#2D2D2D]/20 backdrop-blur-3xl flex items-center justify-center p-8">
                 <motion.div initial={{ scale: 0.9, y: 30 }} animate={{ scale: 1, y: 0 }} className="bg-white rounded-[44px] w-full max-w-md p-12 shadow-2xl relative border border-[#E5D3C5]/20">
                     <button onClick={() => setEditingLog(null)} className="absolute top-10 right-10 text-gray-300 hover:text-[#2D2D2D] transition-colors"><X size={24} /></button>
-                    <h2 className="text-3xl font-bold text-[#2D2D2D] mb-12 tracking-tighter font-serif">修改记录</h2>
+                    <h2 className="text-3xl font-bold text-[#2D2D2D] mb-12 tracking-tighter font-serif">编辑产蛋记录</h2>
                     <div className="space-y-10">
                         <div>
                             <div className="flex items-center justify-between mb-5 px-1">
-                              <label className="text-[11px] font-bold text-[#A0A0A0] uppercase tracking-wider flex items-center gap-2 cn-relaxed"><Scale size={14} /> 重量 (克)</label>
+                              <label className="text-[11px] font-bold text-[#A0A0A0] uppercase tracking-wider flex items-center gap-2 cn-relaxed"><Scale size={14} /> 重量 (g)</label>
                               <span className="text-4xl font-bold text-[#D48C45] tabular-nums tracking-tighter">{editWeight}</span>
                             </div>
                             <input type="range" min="30" max="90" value={editWeight} onChange={(e) => setEditWeight(parseInt(e.target.value))} className="w-full h-1.5 bg-[#F9F5F0] rounded-full appearance-none cursor-pointer" />
@@ -468,7 +547,7 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, expenses, o
                             </div>
                         </div>
                         <button onClick={handleUpdateLog} className="w-full py-6 bg-[#D48C45] text-white rounded-[32px] font-bold text-lg shadow-2xl shadow-[#D48C45]/25 active:scale-95 flex items-center justify-center gap-3 cn-relaxed">
-                            <CheckCircle size={22} /> 保存修改
+                            <CheckCircle size={22} /> 保存更新
                         </button>
                     </div>
                 </motion.div>

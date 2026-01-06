@@ -1,6 +1,6 @@
 
 import { initializeApp } from 'firebase/app';
-import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc, query, orderBy, writeBatch, where, Timestamp } from 'firebase/firestore';
+import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc, query, orderBy, writeBatch, where, Timestamp, setDoc, getDoc } from 'firebase/firestore';
 import { Hen, EggLog, Expense } from '../types';
 
 const firebaseConfig = {
@@ -15,13 +15,31 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);
 
-// Helper functions
+// Helper collections
 export const hensRef = collection(db, 'hens');
 export const eggLogsRef = collection(db, 'egg_logs');
 export const expensesRef = collection(db, 'expenses');
+export const settingsRef = collection(db, 'settings');
 
 /**
- * Fetch all hens, strictly mapping Document ID.
+ * Settings persistence
+ */
+export const getGlobalSettings = async () => {
+  const docRef = doc(db, 'settings', 'global_config');
+  const docSnap = await getDoc(docRef);
+  if (docSnap.exists()) {
+    return docSnap.data();
+  }
+  return { eggPrice: 1.5 };
+};
+
+export const updateGlobalSettings = async (data: { eggPrice: number }) => {
+  const docRef = doc(db, 'settings', 'global_config');
+  await setDoc(docRef, data, { merge: true });
+};
+
+/**
+ * Fetch all hens
  */
 export const getHens = async (): Promise<Hen[]> => {
   const snapshot = await getDocs(query(hensRef, orderBy('createdAt', 'desc')));
@@ -41,7 +59,7 @@ export const getHens = async (): Promise<Hen[]> => {
 };
 
 /**
- * Fetch all egg logs.
+ * Fetch all egg logs
  */
 export const getEggLogs = async (): Promise<EggLog[]> => {
   const snapshot = await getDocs(query(eggLogsRef, orderBy('timestamp', 'desc')));
@@ -61,7 +79,7 @@ export const getEggLogs = async (): Promise<EggLog[]> => {
 };
 
 /**
- * Fetch all expenses.
+ * Fetch all expenses
  */
 export const getExpenses = async (): Promise<Expense[]> => {
   const snapshot = await getDocs(query(expensesRef, orderBy('timestamp', 'desc')));
@@ -113,7 +131,6 @@ export const deleteEggLog = async (id: string) => {
   await deleteDoc(logDoc);
 };
 
-// Added clearAllEggLogs to fix export error in HistoryView.tsx
 export const clearAllEggLogs = async () => {
   const snapshot = await getDocs(eggLogsRef);
   const batch = writeBatch(db);
