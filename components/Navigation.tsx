@@ -11,10 +11,10 @@ interface NavigationProps {
 
 const Navigation: React.FC<NavigationProps> = ({ currentView, onViewChange }) => {
   const tabs = [
-    { id: View.HOME, label: 'Hero', icon: Home },
-    { id: View.STATISTICS, label: 'Stats', icon: BarChart3 },
-    { id: View.HEALTH, label: 'Health', icon: Activity },
-    { id: View.HENS, label: 'Flock', icon: Users },
+    { id: View.HOME, label: '首页', icon: Home },
+    { id: View.STATISTICS, label: '统计', icon: BarChart3 },
+    { id: View.HEALTH, label: '健康', icon: Activity },
+    { id: View.HENS, label: '鸡群', icon: Users },
   ];
 
   return (

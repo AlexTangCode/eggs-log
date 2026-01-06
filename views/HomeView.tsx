@@ -1,7 +1,7 @@
 
-import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Egg, Trash2, Calendar, Scale, Hash, X, Check, TrendingUp, CalendarDays } from 'lucide-react';
+import { Egg, Calendar, Scale, Hash, X, Check, TrendingUp, CalendarDays } from 'lucide-react';
 import { addDoc } from 'firebase/firestore';
 import { Hen, EggLog } from '../types';
 import { eggLogsRef } from '../services/firebase';
@@ -20,11 +20,6 @@ interface MagicDust {
   size: number;
 }
 
-/**
- * HEN HERO ITEM
- * Locked width of 160px to ensure horizontal scroll triggering as per specifications.
- * Each item handles its own localized "Gentle Glide" animation and harvest state.
- */
 const HenHeroItem: React.FC<{
   hen: Hen;
   onTap: (hen: Hen) => void;
@@ -34,9 +29,8 @@ const HenHeroItem: React.FC<{
   size?: number;
 }> = ({ hen, onTap, isLaying, isSquishing, dustParticles, size = 140 }) => {
   return (
-    <div className="relative flex flex-col items-center flex-shrink-0 select-none pb-6 w-[160px] h-full justify-center">
+    <div className="relative flex flex-col items-center flex-shrink-0 select-none pb-12 w-[160px] h-full justify-center">
       <div className="relative">
-        {/* Interaction Target */}
         <motion.div
           onTap={() => onTap(hen)}
           whileTap={{ scale: 0.94 }}
@@ -48,12 +42,11 @@ const HenHeroItem: React.FC<{
           transition={{ duration: 0.3 }}
           className="cursor-pointer relative z-10"
         >
-          <div className="drop-shadow-[0_15px_45px_rgba(212,140,69,0.15)]">
+          <div className="drop-shadow-[0_20px_40px_rgba(212,140,69,0.18)]">
             <HenGraphic color={hen.color || '#E5D3C5'} size={size} />
           </div>
         </motion.div>
 
-        {/* Localized Magic Dust */}
         <AnimatePresence>
           {dustParticles.map(p => (
             <motion.div
@@ -71,42 +64,46 @@ const HenHeroItem: React.FC<{
           ))}
         </AnimatePresence>
 
-        {/* Gentle Glide Animation - Localized Position */}
         <AnimatePresence>
           {isLaying && (
             <motion.div
-              initial={{ opacity: 0, x: -75 * (size / 180), y: 60 * (size / 180), scale: 0.7 }}
+              key={`egg-${hen.id}`}
+              initial={{ 
+                opacity: 0, 
+                x: -75 * (size / 180), 
+                y: 60 * (size / 180), 
+                scale: 0.6 
+              }}
               animate={{
-                opacity: [0, 1, 1, 0.5, 0],
+                opacity: [0, 1, 1, 0.8, 0],
                 x: -75 * (size / 180),
-                y: 220 * (size / 180),
-                scale: [0.7, 1, 1, 0.8, 0.6],
+                y: 240 * (size / 180),
+                scale: [0.6, 1.1, 1, 0.9, 0.5],
               }}
               transition={{
-                duration: 1.1,
-                ease: [0.25, 0.46, 0.45, 0.94],
-                times: [0, 0.2, 0.7, 0.9, 1]
+                duration: 1.2,
+                ease: "easeOut",
+                times: [0, 0.2, 0.6, 0.9, 1]
               }}
               className="absolute left-1/2 top-0 pointer-events-none z-20"
             >
-              <div className="bg-[#D48C45] rounded-full w-9 h-12 shadow-xl flex items-center justify-center border-none">
-                <Egg size={16} fill="white" stroke="none" />
+              <div className="bg-[#FDF5E6] rounded-full w-10 h-13 shadow-[0_10px_20px_rgba(45,45,45,0.1)] flex items-center justify-center border-2 border-[#D48C45]/10">
+                <Egg size={18} fill="#D48C45" stroke="none" className="opacity-80" />
               </div>
             </motion.div>
           )}
         </AnimatePresence>
       </div>
 
-      {/* Name Label */}
       <motion.div
         initial={{ opacity: 0, y: 5 }}
         animate={{ opacity: 1, y: 0 }}
         className="mt-6 text-center px-1"
       >
-        <h3 className="text-xl font-black text-[#2D2D2D] tracking-tighter leading-tight truncate w-[140px]">
+        <h3 className="text-xl font-bold text-[#2D2D2D] tracking-tight leading-tight truncate w-[140px] cn-relaxed">
           {hen.name}
         </h3>
-        <span className="text-[8px] font-black uppercase tracking-[0.25em] text-[#D48C45] bg-[#D48C45]/10 px-3 py-1 rounded-full inline-block mt-2">
+        <span className="text-[9px] font-semibold uppercase tracking-[0.1em] text-[#D48C45] bg-[#D48C45]/10 px-3 py-1 rounded-full inline-block mt-2">
           {hen.breed}
         </span>
       </motion.div>
@@ -131,30 +128,6 @@ const HomeView: React.FC<HomeViewProps> = ({ hens, logs, onRefresh }) => {
   const [startX, setStartX] = useState(0);
   const [scrollLeft, setScrollLeft] = useState(0);
 
-  // Mouse Drag to Scroll Implementation
-  const handleMouseDown = (e: React.MouseEvent) => {
-    if (!scrollRef.current) return;
-    setIsDragging(true);
-    setStartX(e.pageX - scrollRef.current.offsetLeft);
-    setScrollLeft(scrollRef.current.scrollLeft);
-  };
-
-  const handleMouseLeave = () => {
-    setIsDragging(false);
-  };
-
-  const handleMouseUp = () => {
-    setIsDragging(false);
-  };
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging || !scrollRef.current) return;
-    e.preventDefault();
-    const x = e.pageX - scrollRef.current.offsetLeft;
-    const walk = (x - startX) * 2; // Scroll speed multiplier
-    scrollRef.current.scrollLeft = scrollLeft - walk;
-  };
-
   const stats = useMemo(() => {
     const now = new Date();
     const startOfWeek = new Date(now);
@@ -171,6 +144,24 @@ const HomeView: React.FC<HomeViewProps> = ({ hens, logs, onRefresh }) => {
 
     return { weeklyTotal, monthlyTotal };
   }, [logs]);
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (!scrollRef.current) return;
+    setIsDragging(true);
+    setStartX(e.pageX - scrollRef.current.offsetLeft);
+    setScrollLeft(scrollRef.current.scrollLeft);
+  };
+
+  const handleMouseLeave = () => setIsDragging(false);
+  const handleMouseUp = () => setIsDragging(false);
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging || !scrollRef.current) return;
+    e.preventDefault();
+    const x = e.pageX - scrollRef.current.offsetLeft;
+    const walk = (x - startX) * 2;
+    scrollRef.current.scrollLeft = scrollLeft - walk;
+  };
 
   const handleHenTap = useCallback((hen: Hen) => {
     if (isLayingId || isSquishingId) return;
@@ -195,13 +186,15 @@ const HomeView: React.FC<HomeViewProps> = ({ hens, logs, onRefresh }) => {
       }));
       setDustParticles(newParticles);
 
-      const selectedTimestamp = new Date(entryDate).getTime() + (new Date().getHours() * 3600000) + (new Date().getMinutes() * 60000);
+      const d = new Date(entryDate);
+      const selectedTimestamp = d.getTime() + (new Date().getHours() * 3600000) + (new Date().getMinutes() * 60000);
+      
       try {
         await addDoc(eggLogsRef, {
           henId: activeHen.id,
           henName: activeHen.name,
-          weight: entryWeight,
-          quantity: entryQuantity,
+          weight: Number(entryWeight),
+          quantity: Number(entryQuantity),
           timestamp: selectedTimestamp
         });
         onRefresh();
@@ -213,7 +206,7 @@ const HomeView: React.FC<HomeViewProps> = ({ hens, logs, onRefresh }) => {
         setIsLayingId(null);
         setDustParticles([]);
         setActiveHen(null);
-      }, 1250);
+      }, 1300);
     }, 450);
   };
 
@@ -223,8 +216,8 @@ const HomeView: React.FC<HomeViewProps> = ({ hens, logs, onRefresh }) => {
         <div className="bg-white/40 p-12 rounded-[50px] mb-10 shadow-sm border border-[#E5D3C5]/30">
           <HenGraphic color="#E5D3C5" size={160} />
         </div>
-        <h1 className="font-serif text-3xl font-bold text-[#2D2D2D] mb-4 italic">Chloes Chicken</h1>
-        <p className="text-[#A0A0A0] text-sm mb-12 font-medium italic leading-relaxed">The coop is empty. Head to the Flock tab to welcome your first hen.</p>
+        <h1 className="font-serif text-3xl font-extrabold text-[#2D2D2D] mb-4 tracking-tighter">Chloes Chicken</h1>
+        <p className="text-[#A0A0A0] text-sm mb-12 font-medium leading-relaxed cn-relaxed">鸡舍目前空空如也。请前往“鸡群”标签添加成员。</p>
       </div>
     );
   }
@@ -234,54 +227,47 @@ const HomeView: React.FC<HomeViewProps> = ({ hens, logs, onRefresh }) => {
       <header className="pt-10 pb-4 px-10 text-center relative z-20">
         <motion.h2
           initial={{ opacity: 0 }}
-          animate={{ opacity: 0.5 }}
-          className="font-serif text-xl italic text-[#D48C45] mb-2 tracking-[0.2em]"
+          animate={{ opacity: 0.6 }}
+          className="font-serif text-xl text-[#D48C45] mb-2 tracking-[0.15em] font-extrabold"
         >
           Chloes Chicken
         </motion.h2>
       </header>
 
-      {/* PRODUCTION DASHBOARD */}
       <div className="px-10 mb-8 flex-shrink-0">
         <div className="bg-white/70 backdrop-blur-xl rounded-[32px] p-6 border border-white/40 shadow-[0_15px_35px_rgba(45,45,45,0.03)] flex justify-around items-center">
           <div className="text-center">
             <div className="flex items-center gap-1.5 justify-center mb-1 text-[#D48C45]">
-              <TrendingUp size={14} strokeWidth={3} />
-              <span className="text-[9px] font-black uppercase tracking-widest">Weekly</span>
+              <TrendingUp size={14} strokeWidth={2.5} />
+              <span className="text-[10px] font-bold uppercase tracking-wider cn-relaxed">本周统计</span>
             </div>
-            <div className="text-3xl font-black text-[#2D2D2D] tracking-tighter tabular-nums">{stats.weeklyTotal}</div>
+            <div className="text-3xl font-bold text-[#2D2D2D] tracking-tighter tabular-nums">{stats.weeklyTotal}</div>
           </div>
           <div className="w-[1px] h-10 bg-[#E5D3C5]/30" />
           <div className="text-center">
             <div className="flex items-center gap-1.5 justify-center mb-1 text-[#B66649]">
-              <CalendarDays size={14} strokeWidth={3} />
-              <span className="text-[9px] font-black uppercase tracking-widest">Monthly</span>
+              <CalendarDays size={14} strokeWidth={2.5} />
+              <span className="text-[10px] font-bold uppercase tracking-wider cn-relaxed">本月统计</span>
             </div>
-            <div className="text-3xl font-black text-[#2D2D2D] tracking-tighter tabular-nums">{stats.monthlyTotal}</div>
+            <div className="text-3xl font-bold text-[#2D2D2D] tracking-tighter tabular-nums">{stats.monthlyTotal}</div>
           </div>
         </div>
       </div>
 
-      {/* HERO SECTION - Mandatory Scroll Physics */}
-      <div className="flex-1 flex flex-col justify-center relative overflow-hidden min-h-[400px]">
-        <div className="text-center mb-6">
-          <p className="text-[#A0A0A0] text-[10px] font-black uppercase tracking-[0.6em] italic opacity-50">
-            Tap to record harvest
+      <div className="flex-1 flex flex-col justify-center relative overflow-hidden min-h-[420px]">
+        <div className="text-center mb-4">
+          <p className="text-[#A0A0A0] text-[10px] font-semibold uppercase tracking-[0.3em] opacity-60 cn-relaxed">
+            点击母鸡记录产蛋
           </p>
         </div>
 
-        {/* 
-          SCROLL CONTAINER (The "SingleChildScrollView")
-          Locked height and width triggers.
-          Includes Mouse Drag logic for Desktop/Web compatibility.
-        */}
         <div 
           ref={scrollRef}
           onMouseDown={handleMouseDown}
           onMouseLeave={handleMouseLeave}
           onMouseUp={handleMouseUp}
           onMouseMove={handleMouseMove}
-          className={`w-full overflow-x-auto scroll-native flex items-center h-[380px] cursor-grab active:cursor-grabbing overscroll-x-contain select-none`}
+          className="w-full overflow-x-auto scroll-native flex items-center h-[380px] cursor-grab active:cursor-grabbing overscroll-x-contain select-none pb-8"
         >
           <div 
             className={`flex flex-nowrap min-w-full px-12 gap-[30px] items-center h-full ${
@@ -299,7 +285,6 @@ const HomeView: React.FC<HomeViewProps> = ({ hens, logs, onRefresh }) => {
                 size={HEN_DISPLAY_SIZE}
               />
             ))}
-            {/* Horizontal Padding Buffer */}
             {hens.length > 2 && <div className="w-12 flex-shrink-0" />}
           </div>
         </div>
@@ -307,7 +292,6 @@ const HomeView: React.FC<HomeViewProps> = ({ hens, logs, onRefresh }) => {
 
       <div className="pb-32 flex-shrink-0" />
 
-      {/* HARVEST DIALOG */}
       <AnimatePresence>
         {showEntryModal && (
           <motion.div
@@ -333,17 +317,17 @@ const HomeView: React.FC<HomeViewProps> = ({ hens, logs, onRefresh }) => {
                 <div className="w-16 h-16 bg-[#D48C45]/10 rounded-[28px] flex items-center justify-center text-[#D48C45] mx-auto mb-4">
                   <Egg size={32} />
                 </div>
-                <h3 className="font-serif text-3xl font-bold text-[#2D2D2D] italic">Harvest Entry</h3>
-                <p className="text-[#A0A0A0] text-[11px] font-bold uppercase tracking-wider mt-1.5 opacity-80">Collecting for {activeHen?.name}</p>
+                <h3 className="font-serif text-3xl font-extrabold text-[#2D2D2D] tracking-tight">录入产蛋记录</h3>
+                <p className="text-[#A0A0A0] text-[11px] font-semibold uppercase tracking-wider mt-1.5 opacity-80 cn-relaxed">为 {activeHen?.name} 记录</p>
               </div>
 
               <div className="space-y-8">
                 <div>
                   <div className="flex items-center justify-between mb-3 px-1">
-                    <label className="text-[10px] font-black text-[#A0A0A0] uppercase tracking-widest flex items-center gap-2">
-                      <Scale size={14} /> Average Mass
+                    <label className="text-[11px] font-bold text-[#A0A0A0] uppercase tracking-wider flex items-center gap-2 cn-relaxed">
+                      <Scale size={14} /> 重量 (克)
                     </label>
-                    <span className="text-2xl font-black text-[#D48C45] tabular-nums tracking-tighter">{entryWeight}g</span>
+                    <span className="text-2xl font-bold text-[#D48C45] tabular-nums tracking-tighter">{entryWeight}g</span>
                   </div>
                   <input
                     type="range" min="30" max="90" value={entryWeight}
@@ -354,8 +338,8 @@ const HomeView: React.FC<HomeViewProps> = ({ hens, logs, onRefresh }) => {
 
                 <div className="grid grid-cols-2 gap-5">
                    <div>
-                    <label className="text-[10px] font-black text-[#A0A0A0] uppercase tracking-widest block mb-2 flex items-center gap-2">
-                      <Hash size={14} /> Count
+                    <label className="text-[11px] font-bold text-[#A0A0A0] uppercase tracking-wider block mb-2 flex items-center gap-2 cn-relaxed">
+                      <Hash size={14} /> 数量
                     </label>
                     <select
                       value={entryQuantity}
@@ -366,24 +350,24 @@ const HomeView: React.FC<HomeViewProps> = ({ hens, logs, onRefresh }) => {
                     </select>
                   </div>
                   <div>
-                    <label className="text-[10px] font-black text-[#A0A0A0] uppercase tracking-widest block mb-2 flex items-center gap-2">
-                      <Calendar size={14} /> Date
+                    <label className="text-[11px] font-bold text-[#A0A0A0] uppercase tracking-wider block mb-2 flex items-center gap-2 cn-relaxed">
+                      <Calendar size={14} /> 产蛋日期
                     </label>
                     <input
                       type="date"
                       value={entryDate}
                       onChange={(e) => setEntryDate(e.target.value)}
-                      className="w-full p-4 bg-[#F9F5F0]/60 border border-[#E5D3C5]/20 rounded-2xl outline-none font-bold text-[11px] text-[#2D2D2D]"
+                      className="w-full p-4 bg-[#F9F5F0]/60 border border-[#E5D3C5]/30 rounded-2xl outline-none font-bold text-[11px] text-[#2D2D2D]"
                     />
                   </div>
                 </div>
 
                 <button
                   onClick={handleConfirmHarvest}
-                  className="w-full py-6 bg-[#D48C45] text-white rounded-[28px] font-bold text-xl shadow-xl shadow-[#D48C45]/20 active:scale-95 transition-all flex items-center justify-center gap-3"
+                  className="w-full py-6 bg-[#D48C45] text-white rounded-[28px] font-bold text-xl shadow-xl shadow-[#D48C45]/20 active:scale-95 transition-all flex items-center justify-center gap-3 cn-relaxed"
                 >
                   <Check size={24} />
-                  Record Harvest
+                  保存记录
                 </button>
               </div>
             </motion.div>

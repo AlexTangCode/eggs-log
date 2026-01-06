@@ -46,7 +46,7 @@ const App: React.FC = () => {
     if (loading) {
       return (
         <div className="flex flex-col items-center justify-center h-full bg-[#F9F5F0]">
-          <h1 className="font-serif italic text-2xl text-[#D48C45] mb-8 animate-pulse">Chloes Chicken</h1>
+          <h1 className="font-serif font-extrabold text-2xl text-[#D48C45] mb-8 animate-pulse">Chloes Chicken</h1>
           <motion.div 
             animate={{ rotate: 360 }}
             transition={{ repeat: Infinity, duration: 2, ease: "linear" }}

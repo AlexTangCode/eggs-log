@@ -29,7 +29,7 @@ const HenItem: React.FC<{
       >
         <div className="flex flex-col items-center gap-1">
           <Trash2 size={24} />
-          <span className="text-[9px] font-black uppercase tracking-widest text-center">Delete</span>
+          <span className="text-[10px] font-bold uppercase tracking-wider text-center cn-relaxed">删除</span>
         </div>
       </motion.div>
 
@@ -41,7 +41,7 @@ const HenItem: React.FC<{
         onDragEnd={(_, info) => {
           if (info.offset.x < -60) {
             onDeleteRequest(hen);
-            x.set(0); // Snap back so it doesn't stay open if cancelled
+            x.set(0);
           }
         }}
         style={{ x }}
@@ -52,8 +52,8 @@ const HenItem: React.FC<{
             <HenGraphic color={hen.color} size={65} />
           </div>
           <div>
-            <h3 className="font-bold text-[#2D2D2D] text-xl leading-tight tracking-tight">{hen.name}</h3>
-            <div className="flex gap-2 text-[10px] font-black text-[#A0A0A0] uppercase tracking-[0.2em] mt-2">
+            <h3 className="font-bold text-[#2D2D2D] text-xl leading-tight tracking-tight cn-relaxed">{hen.name}</h3>
+            <div className="flex gap-2 text-[10px] font-bold text-[#A0A0A0] uppercase tracking-wider mt-2 cn-relaxed">
               <span className="bg-[#F9F5F0] px-3 py-1 rounded-full">{hen.breed}</span>
             </div>
           </div>
@@ -95,16 +95,16 @@ const HensView: React.FC<HensViewProps> = ({ hens, onRefresh, onNotify }) => {
     try {
       if (editingHen) {
         await updateHen(editingHen.id, { name, breed, age, color });
-        onNotify(`${name} updated.`);
+        onNotify(`${name} 资料已更新。`);
       } else {
         await addDoc(hensRef, { 
           name, 
-          breed: breed || 'Heritage', 
+          breed: breed || '传统品种', 
           age: age || '1', 
           color, 
           createdAt: Date.now() 
         });
-        onNotify(`${name} welcomed!`);
+        onNotify(`欢迎 ${name} 加入！`);
       }
       setEditingHen(null);
       setShowAdd(false);
@@ -113,7 +113,7 @@ const HensView: React.FC<HensViewProps> = ({ hens, onRefresh, onNotify }) => {
       setAge('');
       onRefresh();
     } catch (err) {
-      onNotify("Error saving profile.", "info");
+      onNotify("保存档案时出错。", "info");
     }
   };
 
@@ -130,11 +130,11 @@ const HensView: React.FC<HensViewProps> = ({ hens, onRefresh, onNotify }) => {
     if (!henToDelete || !henToDelete.id) return;
     try {
       await deleteHenAndLogs(henToDelete.id);
-      onNotify(`${henToDelete.name} removed.`);
+      onNotify(`${henToDelete.name} 已移除。`);
       setHenToDelete(null);
       onRefresh();
     } catch (e) {
-      onNotify("Deletion error.", "info");
+      onNotify("移除成员时出错。", "info");
       setHenToDelete(null);
     }
   };
@@ -143,8 +143,8 @@ const HensView: React.FC<HensViewProps> = ({ hens, onRefresh, onNotify }) => {
     <div className="p-10 pb-40 bg-[#F9F5F0] min-h-full scroll-native overflow-y-auto">
       <div className="flex items-center justify-between mb-12">
         <div>
-          <h1 className="font-serif text-4xl font-bold text-[#2D2D2D] tracking-tighter italic">The Flock</h1>
-          <p className="text-[#A0A0A0] text-[10px] mt-2 uppercase tracking-[0.4em] font-black">Chloes Management</p>
+          <h1 className="font-serif text-4xl font-extrabold text-[#2D2D2D] tracking-tighter">我的鸡群</h1>
+          <p className="text-[#A0A0A0] text-[11px] mt-2 uppercase tracking-[0.3em] font-bold cn-relaxed opacity-60">鸡舍管理</p>
         </div>
         <motion.button 
           whileTap={{ scale: 0.9 }} 
@@ -171,7 +171,7 @@ const HensView: React.FC<HensViewProps> = ({ hens, onRefresh, onNotify }) => {
               className="flex flex-col items-center justify-center py-24 text-center opacity-30 bg-white/30 rounded-[50px] border border-dashed border-[#E5D3C5]/40"
             >
               <Users size={48} strokeWidth={1} className="mb-5 text-[#A0A0A0]" />
-              <p className="text-[10px] font-black uppercase tracking-[0.6em] text-[#A0A0A0]">Empty Nest</p>
+              <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-[#A0A0A0] cn-relaxed">暂无成员</p>
             </motion.div>
           ) : (
             hens.map((hen) => (
@@ -186,13 +186,12 @@ const HensView: React.FC<HensViewProps> = ({ hens, onRefresh, onNotify }) => {
         </AnimatePresence>
         
         {hens.length > 0 && (
-          <p className="text-center text-[9px] text-[#A0A0A0] font-black uppercase tracking-[0.6em] mt-8 opacity-40">
-            Swipe left to remove member
+          <p className="text-center text-[10px] text-[#A0A0A0] font-bold uppercase tracking-[0.3em] mt-8 opacity-40 cn-relaxed">
+            向左滑动移除成员
           </p>
         )}
       </div>
 
-      {/* Confirmation Dialog for Deletion */}
       <AnimatePresence>
         {henToDelete && (
           <motion.div 
@@ -209,24 +208,24 @@ const HensView: React.FC<HensViewProps> = ({ hens, onRefresh, onNotify }) => {
               <div className="w-16 h-16 bg-[#B66649]/10 rounded-[28px] flex items-center justify-center text-[#B66649] mx-auto mb-6">
                 <AlertTriangle size={32} />
               </div>
-              <h2 className="font-serif text-2xl font-bold text-[#2D2D2D] mb-4 tracking-tighter italic">
-                Confirm Removal?
+              <h2 className="font-serif text-2xl font-extrabold text-[#2D2D2D] mb-4 tracking-tighter">
+                确认移除？
               </h2>
-              <p className="text-sm text-[#A0A0A0] leading-relaxed mb-8 font-medium">
-                Are you sure you want to remove <span className="text-[#2D2D2D] font-bold">{henToDelete.name}</span>? This will also delete all of her egg records.
+              <p className="text-sm text-[#A0A0A0] leading-relaxed mb-8 font-medium cn-relaxed">
+                确定要移除 <span className="text-[#2D2D2D] font-bold">{henToDelete.name}</span> 吗？此操作将同时删除她所有的产蛋记录。
               </p>
               <div className="grid grid-cols-2 gap-4">
                 <button 
                   onClick={() => setHenToDelete(null)}
-                  className="py-4 bg-[#F9F5F0] text-[#2D2D2D] rounded-[24px] font-bold text-sm transition-transform active:scale-95"
+                  className="py-4 bg-[#F9F5F0] text-[#2D2D2D] rounded-[24px] font-bold text-sm transition-transform active:scale-95 cn-relaxed"
                 >
-                  Cancel
+                  取消
                 </button>
                 <button 
                   onClick={handleDeleteHen}
-                  className="py-4 bg-[#D48C45] text-white rounded-[24px] font-bold text-sm shadow-lg shadow-[#D48C45]/20 transition-transform active:scale-95"
+                  className="py-4 bg-[#D48C45] text-white rounded-[24px] font-bold text-sm shadow-lg shadow-[#D48C45]/20 transition-transform active:scale-95 cn-relaxed"
                 >
-                  Delete
+                  确认移除
                 </button>
               </div>
             </motion.div>
@@ -253,45 +252,45 @@ const HensView: React.FC<HensViewProps> = ({ hens, onRefresh, onNotify }) => {
               >
                 <X size={24} />
               </button>
-              <h2 className="font-serif text-3xl font-bold text-[#2D2D2D] mb-10 tracking-tighter italic">
-                {editingHen ? `Profile Details` : 'New Flock Member'}
+              <h2 className="font-serif text-3xl font-extrabold text-[#2D2D2D] mb-10 tracking-tighter">
+                {editingHen ? `档案详情` : '添加新成员'}
               </h2>
               <form onSubmit={handleSubmit} className="space-y-8">
                 <div>
-                  <label className="text-[10px] font-black text-[#A0A0A0] uppercase tracking-[0.3em] block mb-3 px-1">Name</label>
+                  <label className="text-[11px] font-bold text-[#A0A0A0] uppercase tracking-wider block mb-3 px-1 cn-relaxed">名字</label>
                   <input 
                     type="text" 
                     value={name} 
                     onChange={e => setName(e.target.value)} 
-                    placeholder="Chloe" 
-                    className="w-full p-5 bg-[#F9F5F0]/60 border border-[#E5D3C5]/30 rounded-2xl outline-none font-bold text-[#2D2D2D]" 
+                    placeholder="输入名字" 
+                    className="w-full p-5 bg-[#F9F5F0]/60 border border-[#E5D3C5]/30 rounded-2xl outline-none font-bold text-[#2D2D2D] cn-relaxed" 
                     required 
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-[10px] font-black text-[#A0A0A0] uppercase tracking-[0.3em] block mb-2 px-1">Breed</label>
+                    <label className="text-[11px] font-bold text-[#A0A0A0] uppercase tracking-wider block mb-2 px-1 cn-relaxed">品种</label>
                     <input 
                       type="text" 
                       value={breed} 
                       onChange={e => setBreed(e.target.value)} 
-                      placeholder="Legacy" 
-                      className="w-full p-5 bg-[#F9F5F0]/60 border border-[#E5D3C5]/30 rounded-2xl outline-none text-xs font-bold" 
+                      placeholder="输入品种" 
+                      className="w-full p-5 bg-[#F9F5F0]/60 border border-[#E5D3C5]/30 rounded-2xl outline-none text-xs font-bold cn-relaxed" 
                     />
                   </div>
                   <div>
-                    <label className="text-[10px] font-black text-[#A0A0A0] uppercase tracking-[0.3em] block mb-2 px-1">Age</label>
+                    <label className="text-[11px] font-bold text-[#A0A0A0] uppercase tracking-wider block mb-2 px-1 cn-relaxed">破壳日期/周期</label>
                     <input 
                       type="text" 
                       value={age} 
                       onChange={e => setAge(e.target.value)} 
-                      placeholder="1 yr" 
-                      className="w-full p-5 bg-[#F9F5F0]/60 border border-[#E5D3C5]/30 rounded-2xl outline-none text-xs font-bold" 
+                      placeholder="如：1年" 
+                      className="w-full p-5 bg-[#F9F5F0]/60 border border-[#E5D3C5]/30 rounded-2xl outline-none text-xs font-bold cn-relaxed" 
                     />
                   </div>
                 </div>
                 <div>
-                  <label className="text-[10px] font-black text-[#A0A0A0] uppercase tracking-[0.3em] block mb-5 px-1">Feather Color</label>
+                  <label className="text-[11px] font-bold text-[#A0A0A0] uppercase tracking-wider block mb-5 px-1 cn-relaxed">羽毛颜色</label>
                   <div className="flex gap-4 justify-between px-2">
                     {colors.map(c => (
                       <button 
@@ -306,9 +305,9 @@ const HensView: React.FC<HensViewProps> = ({ hens, onRefresh, onNotify }) => {
                 </div>
                 <button 
                   type="submit" 
-                  className="w-full py-6 bg-[#D48C45] text-white rounded-[32px] font-bold text-lg shadow-xl shadow-[#D48C45]/20 active:scale-95 transition-transform"
+                  className="w-full py-6 bg-[#D48C45] text-white rounded-[32px] font-bold text-lg shadow-xl shadow-[#D48C45]/20 active:scale-95 transition-transform cn-relaxed"
                 >
-                  {editingHen ? 'Update Records' : 'Join Flock'}
+                  {editingHen ? '更新资料' : '加入鸡群'}
                 </button>
               </form>
             </motion.div>

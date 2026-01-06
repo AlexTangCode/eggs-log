@@ -53,9 +53,9 @@ const HealthView: React.FC<HealthViewProps> = ({ hens, logs }) => {
 
   const statusBadge = (status: string) => {
     switch (status) {
-      case 'Optimal': return <div className="px-3 py-1 rounded-full bg-[#B66649]/10 text-[#B66649] text-[9px] font-black uppercase tracking-widest flex items-center gap-1.5"><CheckCircle size={10} /> Active</div>;
-      case 'Observation': return <div className="px-3 py-1 rounded-full bg-[#C2974D]/10 text-[#C2974D] text-[9px] font-black uppercase tracking-widest flex items-center gap-1.5"><AlertCircle size={10} /> Passive</div>;
-      case 'Critical': return <div className="px-3 py-1 rounded-full bg-[#B66649]/20 text-[#B66649] text-[9px] font-black uppercase tracking-widest flex items-center gap-1.5"><AlertCircle size={10} /> Stalled</div>;
+      case 'Optimal': return <div className="px-3 py-1 rounded-full bg-[#B66649]/10 text-[#B66649] text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 cn-relaxed"><CheckCircle size={10} /> 活跃</div>;
+      case 'Observation': return <div className="px-3 py-1 rounded-full bg-[#C2974D]/10 text-[#C2974D] text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 cn-relaxed"><AlertCircle size={10} /> 观察</div>;
+      case 'Critical': return <div className="px-3 py-1 rounded-full bg-[#B66649]/20 text-[#B66649] text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 cn-relaxed"><AlertCircle size={10} /> 停产</div>;
       default: return null;
     }
   };
@@ -64,19 +64,18 @@ const HealthView: React.FC<HealthViewProps> = ({ hens, logs }) => {
     <div className="p-10 pb-36 min-h-full bg-[#F9F5F0]">
       <div className="mb-12 flex items-center justify-between">
         <div>
-          <h1 className="text-4xl font-semibold text-[#2D2D2D] tracking-tighter">Health Lab</h1>
-          <p className="text-[#A0A0A0] text-[10px] mt-2 uppercase tracking-[0.4em] font-black">AI Diagnostics</p>
+          <h1 className="text-4xl font-extrabold text-[#2D2D2D] tracking-tighter font-serif">健康实验室</h1>
+          <p className="text-[#A0A0A0] text-[11px] mt-2 uppercase tracking-[0.3em] font-semibold cn-relaxed opacity-60">AI 诊断分析</p>
         </div>
         <Activity size={32} className="text-[#D48C45] opacity-20" />
       </div>
 
-      {/* AI Block */}
       <div className="bg-white rounded-[40px] p-8 mb-12 shadow-[0_25px_60px_rgba(45,45,45,0.03)] border border-[#E5D3C5]/20 relative overflow-hidden">
         <div className="flex items-center gap-2 mb-8 relative z-10">
           <div className="w-9 h-9 bg-[#D48C45]/10 rounded-2xl flex items-center justify-center text-[#D48C45]">
             <Sparkles size={18} />
           </div>
-          <span className="text-[10px] font-black uppercase tracking-[0.3em] text-[#D48C45]">Gemini Insights</span>
+          <span className="text-[11px] font-bold uppercase tracking-wider text-[#D48C45] cn-relaxed">Gemini 深度见解</span>
           <button onClick={fetchAdvice} disabled={loading} className="ml-auto text-[#A0A0A0] hover:text-[#D48C45] transition-colors">
             <RefreshCcw size={16} className={loading ? 'animate-spin' : ''} />
           </button>
@@ -89,14 +88,14 @@ const HealthView: React.FC<HealthViewProps> = ({ hens, logs }) => {
             <div className="h-3 bg-[#F9F5F0] rounded-full w-2/3 animate-pulse"></div>
           </div>
         ) : (
-          <p className="text-xl font-light leading-relaxed text-[#2D2D2D] italic relative z-10">
-            "{advice || 'Observing flock behavior for analysis...'}"
+          <p className="text-xl font-medium leading-relaxed text-[#2D2D2D] relative z-10 cn-relaxed">
+            "{advice || '正在观察鸡群行为并进行分析...'}"
           </p>
         )}
       </div>
 
       <div className="mb-8">
-        <p className="text-[#A0A0A0] text-[10px] uppercase tracking-[0.4em] font-black">Coop Status Cards</p>
+        <p className="text-[#A0A0A0] text-[11px] uppercase tracking-[0.2em] font-bold cn-relaxed">鸡群状态卡片</p>
       </div>
 
       <div className="space-y-6">
@@ -116,26 +115,26 @@ const HealthView: React.FC<HealthViewProps> = ({ hens, logs }) => {
                   <HenGraphic color={hen.color} size={65} />
                 </div>
                 <div>
-                  <h4 className="font-bold text-[#2D2D2D] text-xl leading-tight tracking-tight">{hen.name}</h4>
+                  <h4 className="font-bold text-[#2D2D2D] text-xl leading-tight tracking-tight cn-relaxed">{hen.name}</h4>
                   <div className="mt-2">{statusBadge(status)}</div>
                 </div>
               </div>
               <div className="text-right">
-                <span className="text-[9px] font-black text-[#A0A0A0] uppercase tracking-[0.2em] block mb-1">Growth</span>
-                <div className={`text-xs font-black uppercase tracking-widest ${
+                <span className="text-[10px] font-bold text-[#A0A0A0] uppercase tracking-wider block mb-1 cn-relaxed">体重趋势</span>
+                <div className={`text-sm font-bold uppercase tracking-wider cn-relaxed ${
                   weightTrend === 'down' ? 'text-[#B66649]' : weightTrend === 'up' ? 'text-[#D48C45]' : 'text-[#A0A0A0]'
                 }`}>
-                  {weightTrend}
+                  {weightTrend === 'down' ? '下降' : weightTrend === 'up' ? '上升' : '稳定'}
                 </div>
               </div>
             </div>
 
-            <div className="flex items-center justify-between pt-5 border-t border-[#F9F5F0] text-[10px]">
-              <span className="text-[#A0A0A0] font-bold uppercase tracking-widest">
-                {daysSince === Infinity ? 'Initial cycle' : `${Math.floor(daysSince / 86400000)} Days idle`}
+            <div className="flex items-center justify-between pt-5 border-t border-[#F9F5F0] text-[11px]">
+              <span className="text-[#A0A0A0] font-bold uppercase tracking-wider cn-relaxed tabular-nums">
+                {daysSince === Infinity ? '产蛋初期' : `${Math.floor(daysSince / 86400000)} 天未产蛋`}
               </span>
-              <button className="flex items-center gap-1.5 text-[#D48C45] font-black uppercase tracking-widest hover:opacity-70 transition-opacity">
-                <Info size={14} /> Reports
+              <button className="flex items-center gap-1.5 text-[#D48C45] font-bold uppercase tracking-wider hover:opacity-70 transition-opacity cn-relaxed">
+                <Info size={14} /> 详情报告
               </button>
             </div>
           </motion.div>
@@ -144,7 +143,7 @@ const HealthView: React.FC<HealthViewProps> = ({ hens, logs }) => {
         {hens.length === 0 && (
           <div className="text-center py-20 bg-white/40 rounded-[40px] border border-dashed border-[#E5D3C5]/40">
             <HelpCircle size={32} className="mx-auto text-[#A0A0A0] mb-4 opacity-20" />
-            <p className="text-[#A0A0A0] font-black text-[10px] tracking-[0.4em] uppercase">No hens registered</p>
+            <p className="text-[#A0A0A0] font-bold text-[11px] tracking-[0.3em] uppercase cn-relaxed">暂未添加鸡群成员</p>
           </div>
         )}
       </div>
