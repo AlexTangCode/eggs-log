@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Egg, Calendar, Scale, Hash, X, Check, TrendingUp, CalendarDays, Share2 } from 'lucide-react';
+import { Egg, Calendar, Scale, Hash, X, Check, TrendingUp, CalendarDays, Download } from 'lucide-react';
 import { addDoc } from 'firebase/firestore';
 import { Hen, EggLog, View } from '../types';
 import { eggLogsRef, incrementEggInventory } from '../services/firebase';
@@ -23,6 +23,14 @@ interface MagicDust {
   size: number;
 }
 
+// Helper to get YYYY-MM-DD in local time (Australian safe)
+const getLocalYMD = (date: Date) => {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
+
 const HenHeroItem: React.FC<{
   hen: Hen;
   onTap: (hen: Hen) => void;
@@ -36,7 +44,6 @@ const HenHeroItem: React.FC<{
   return (
     <div className="relative flex flex-col items-center flex-shrink-0 select-none pb-12 w-[160px] h-full justify-center">
       <div className="relative">
-        {/* Hen Body */}
         <motion.div
           onTap={() => onTap(hen)}
           whileTap={{ scale: 0.94 }}
@@ -53,7 +60,6 @@ const HenHeroItem: React.FC<{
           </div>
         </motion.div>
 
-        {/* Magic Dust Particles during laying */}
         <AnimatePresence>
           {dustParticles.map(p => (
             <motion.div
@@ -71,7 +77,6 @@ const HenHeroItem: React.FC<{
           ))}
         </AnimatePresence>
 
-        {/* Falling Egg Animation */}
         <AnimatePresence>
           {isLaying && (
             <motion.div
@@ -102,7 +107,6 @@ const HenHeroItem: React.FC<{
           )}
         </AnimatePresence>
 
-        {/* Static Resting Egg (remains after laying) */}
         {hasLaidToday && !isLaying && (
           <motion.div
             initial={{ opacity: 0, scale: 0.5, y: 180 * (size / 180) }}
@@ -117,7 +121,6 @@ const HenHeroItem: React.FC<{
         )}
       </div>
 
-      {/* Hen Info Panel */}
       <motion.div
         initial={{ opacity: 0, y: 5 }}
         animate={{ opacity: 1, y: 0 }}
@@ -144,7 +147,7 @@ const HomeView: React.FC<HomeViewProps> = ({ hens, logs, onRefresh, onNotify, on
 
   const [entryWeight, setEntryWeight] = useState<number>(60);
   const [entryQuantity, setEntryQuantity] = useState<number>(1);
-  const [entryDate, setEntryDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [entryDate, setEntryDate] = useState<string>(getLocalYMD(new Date()));
 
   const HEN_DISPLAY_SIZE = 140;
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -152,12 +155,12 @@ const HomeView: React.FC<HomeViewProps> = ({ hens, logs, onRefresh, onNotify, on
   const [startX, setStartX] = useState(0);
   const [scrollLeft, setScrollLeft] = useState(0);
 
-  // Derive which hens have laid eggs today based on logs
   const laidTodayIds = useMemo(() => {
-    const today = new Date().toDateString();
+    const todayStr = getLocalYMD(new Date());
     const ids = new Set<string>();
     logs.forEach(log => {
-      if (new Date(log.timestamp).toDateString() === today) {
+      // Compare local date strings for accuracy
+      if (getLocalYMD(new Date(log.timestamp)) === todayStr) {
         ids.add(log.henId);
       }
     });
@@ -174,12 +177,14 @@ const HomeView: React.FC<HomeViewProps> = ({ hens, logs, onRefresh, onNotify, on
 
   const stats = useMemo(() => {
     const now = new Date();
-    const startOfWeek = new Date(now);
+    // Use local day start for week/month boundaries
+    const startOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const day = startOfWeek.getDay();
-    const diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1);
+    const diff = startOfWeek.getDate() - (day === 0 ? 6 : day - 1);
     startOfWeek.setDate(diff);
     startOfWeek.setHours(0, 0, 0, 0);
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
 
     const weeklyTotal = logs.filter(l => l.timestamp >= startOfWeek.getTime())
       .reduce((sum, l) => sum + (l.quantity || 1), 0);
@@ -210,6 +215,7 @@ const HomeView: React.FC<HomeViewProps> = ({ hens, logs, onRefresh, onNotify, on
   const handleHenTap = useCallback((hen: Hen) => {
     if (isLayingId || isSquishingId) return;
     setActiveHen(hen);
+    setEntryDate(getLocalYMD(new Date()));
     setShowEntryModal(true);
   }, [isLayingId, isSquishingId]);
 
@@ -230,10 +236,12 @@ const HomeView: React.FC<HomeViewProps> = ({ hens, logs, onRefresh, onNotify, on
       }));
       setDustParticles(newParticles);
 
+      // Create timestamp based on local date string input
       const [year, month, day] = entryDate.split('-').map(Number);
       const now = new Date();
-      const finalDate = new Date(year, month - 1, day, now.getHours(), now.getMinutes(), now.getSeconds());
-      const selectedTimestamp = finalDate.getTime();
+      // month-1 because JS Date months are 0-indexed
+      const harvestDate = new Date(year, month - 1, day, now.getHours(), now.getMinutes(), now.getSeconds());
+      const selectedTimestamp = harvestDate.getTime();
       
       try {
         await addDoc(eggLogsRef, {
@@ -243,7 +251,6 @@ const HomeView: React.FC<HomeViewProps> = ({ hens, logs, onRefresh, onNotify, on
           quantity: Number(entryQuantity),
           timestamp: selectedTimestamp
         });
-        // NEW: Increment inventory!
         await incrementEggInventory(Number(entryQuantity));
         onRefresh();
       } catch (err) {
@@ -261,7 +268,7 @@ const HomeView: React.FC<HomeViewProps> = ({ hens, logs, onRefresh, onNotify, on
   return (
     <div className="flex flex-col h-full bg-[#F9F5F0] relative overflow-hidden pt-safe">
       <header className="pt-10 pb-4 px-10 flex items-center justify-between relative z-20">
-        <div className="w-10"></div> {/* Spacer */}
+        <div className="w-10"></div>
         <motion.h2
           initial={{ opacity: 0 }}
           animate={{ opacity: 0.6 }}
@@ -273,8 +280,9 @@ const HomeView: React.FC<HomeViewProps> = ({ hens, logs, onRefresh, onNotify, on
           whileTap={{ scale: 0.9 }}
           onClick={() => setShowPoster(true)}
           className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-[#D48C45] shadow-sm border border-[#E5D3C5]/20 active:bg-[#F9F5F0]"
+          title="下载本周战报"
         >
-          <Share2 size={18} />
+          <Download size={18} />
         </motion.button>
       </header>
 
@@ -354,7 +362,6 @@ const HomeView: React.FC<HomeViewProps> = ({ hens, logs, onRefresh, onNotify, on
         </>
       )}
 
-      {/* Entry Modal */}
       <AnimatePresence>
         {showEntryModal && (
           <motion.div
@@ -442,7 +449,6 @@ const HomeView: React.FC<HomeViewProps> = ({ hens, logs, onRefresh, onNotify, on
         )}
       </AnimatePresence>
 
-      {/* Share Poster Modal */}
       <PosterModal
         isOpen={showPoster}
         onClose={() => setShowPoster(false)}

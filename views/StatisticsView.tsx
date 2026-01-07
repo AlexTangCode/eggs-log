@@ -19,6 +19,13 @@ interface StatisticsViewProps {
   onRefresh?: () => void;
 }
 
+const getLocalYMD = (date: Date) => {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
+
 const LogItem = React.memo(({ 
   log, 
   henName, 
@@ -169,52 +176,38 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, expenses, o
   const activeWindow = useMemo(() => {
     if (timeRange === 'all') return null;
     
-    const start = new Date();
-    const end = new Date();
-    
+    const now = new Date();
     if (timeRange === 'month') {
-      start.setMonth(start.getMonth() + offset);
-      start.setDate(1);
-      start.setHours(0, 0, 0, 0);
-      
-      end.setMonth(start.getMonth() + 1);
-      end.setDate(1);
-      end.setHours(0, 0, 0, 0);
+      const start = new Date(now.getFullYear(), now.getMonth() + offset, 1, 0, 0, 0, 0);
+      const end = new Date(now.getFullYear(), now.getMonth() + offset + 1, 1, 0, 0, 0, 0);
+      return { start: start.getTime(), end: end.getTime() };
     } else {
-      start.setFullYear(start.getFullYear() + offset);
-      start.setMonth(0, 1);
-      start.setHours(0, 0, 0, 0);
-      
-      end.setFullYear(start.getFullYear() + 1);
-      end.setMonth(0, 1);
-      end.setHours(0, 0, 0, 0);
+      const start = new Date(now.getFullYear() + offset, 0, 1, 0, 0, 0, 0);
+      const end = new Date(now.getFullYear() + offset + 1, 0, 1, 0, 0, 0, 0);
+      return { start: start.getTime(), end: end.getTime() };
     }
-    
-    return { start: start.getTime(), end: end.getTime() };
   }, [timeRange, offset]);
 
   const stats = useMemo(() => {
-    let activeLogs = logs;
-    let activeExpenses = expenses;
+    let activeLogs: EggLog[] = logs;
+    let activeExpenses: Expense[] = expenses;
 
-    // Use destructuring and local constants to ensure TypeScript correctly narrows types within closures
     if (activeWindow) {
-      const { start, end } = activeWindow;
-      activeLogs = logs.filter(l => Number(l.timestamp) >= start && Number(l.timestamp) < end);
-      activeExpenses = expenses.filter(e => Number(e.timestamp) >= start && Number(e.timestamp) < end);
+      const windowStart = Number(activeWindow.start);
+      const windowEnd = Number(activeWindow.end);
+      activeLogs = logs.filter(l => Number(l.timestamp) >= windowStart && Number(l.timestamp) < windowEnd);
+      activeExpenses = expenses.filter(e => Number(e.timestamp) >= windowStart && Number(e.timestamp) < windowEnd);
     }
     
-    // Explicitly calculate numeric values using Number() to ensure type safety for arithmetic operations.
-    // This resolves the error: "The left-hand side of an arithmetic operation must be of type 'any', 'number', 'bigint' or an enum type"
-    const activeTotalVal: number = activeLogs.reduce((acc: number, l) => acc + (Number(l.quantity) || 1), 0);
-    const totalEggsVal: number = logs.reduce((acc: number, l) => acc + (Number(l.quantity) || 1), 0);
+    const activeTotalVal: number = activeLogs.reduce((acc: number, l: EggLog) => acc + (Number(l.quantity) || 1), 0);
+    const totalEggsVal: number = logs.reduce((acc: number, l: EggLog) => acc + (Number(l.quantity) || 1), 0);
     const totalWeightVal: number = logs.reduce((acc: number, l: EggLog) => acc + (Number(l.weight) * (Number(l.quantity) || 1)), 0);
     const avgWeightVal: number = totalEggsVal > 0 ? Math.round(totalWeightVal / totalEggsVal) : 0;
 
-    const totalExpVal: number = activeExpenses.reduce((acc: number, e) => acc + Number(e.amount), 0);
+    const totalExpVal: number = activeExpenses.reduce((acc: number, e: Expense) => acc + Number(e.amount), 0);
     const totalRevVal: number = activeTotalVal * Number(eggPrice);
-    const netProfitVal: number = totalRevVal - totalExpVal;
-    const costPerEggVal: string = activeTotalVal > 0 ? (totalExpVal / activeTotalVal).toFixed(2) : '0.00';
+    const netProfitVal: number = Number(totalRevVal) - Number(totalExpVal);
+    const costPerEggVal: string = activeTotalVal > 0 ? (Number(totalExpVal) / Number(activeTotalVal)).toFixed(2) : '0.00';
 
     const expByCategory = activeExpenses.reduce((acc, e) => {
       acc[e.category] = (acc[e.category] || 0) + Number(e.amount);
@@ -266,7 +259,6 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, expenses, o
   const handleUpdateLog = async () => {
     if (!editingLog) return;
     try {
-      // FIX: Use local time parsing to avoid UTC offset issues
       const [year, month, day] = editDate.split('-').map(Number);
       const [hour, min] = editTime.split(':').map(Number);
       const finalDate = new Date(year, month - 1, day, hour, min, 0);
@@ -537,7 +529,7 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, expenses, o
                   setEditWeight(l.weight);
                   setEditQuantity(l.quantity || 1);
                   const d = new Date(l.timestamp);
-                  setEditDate(d.toISOString().split('T')[0]);
+                  setEditDate(getLocalYMD(d));
                   setEditTime(d.toTimeString().split(' ')[0].slice(0, 5));
                 }} 
               />
@@ -571,7 +563,6 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, expenses, o
                       <h2 className="text-3xl font-bold text-[#2D2D2D] mb-8 tracking-tighter font-serif">编辑产蛋记录</h2>
                       
                       <div className="flex flex-col items-stretch w-full space-y-3">
-                          {/* Weight Row */}
                           <div className="flex items-center gap-4 py-3">
                             <label className="w-[60px] text-[11px] font-bold text-[#A0A0A0] uppercase tracking-wider cn-relaxed flex items-center gap-1.5">
                               <Scale size={14} /> 重量
@@ -590,7 +581,6 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, expenses, o
                             </div>
                           </div>
 
-                          {/* Quantity Row */}
                           <div className="flex items-center gap-4 py-3">
                             <label className="w-[60px] text-[11px] font-bold text-[#A0A0A0] uppercase tracking-wider cn-relaxed flex items-center gap-1.5">
                               <Hash size={14} /> 数量
@@ -604,7 +594,6 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, expenses, o
                             </select>
                           </div>
 
-                          {/* Date Row */}
                           <div className="flex items-center gap-4 py-3">
                             <label className="w-[60px] text-[11px] font-bold text-[#A0A0A0] uppercase tracking-wider cn-relaxed flex items-center gap-1.5">
                               <Calendar size={14} /> 日期
