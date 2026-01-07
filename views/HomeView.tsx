@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Egg, Calendar, Scale, Hash, X, Check, TrendingUp, CalendarDays, Share2 } from 'lucide-react';
 import { addDoc } from 'firebase/firestore';
 import { Hen, EggLog, View } from '../types';
-import { eggLogsRef } from '../services/firebase';
+import { eggLogsRef, incrementEggInventory } from '../services/firebase';
 import HenGraphic from '../components/HenGraphic';
 import PosterModal from '../components/PosterModal';
 
@@ -243,6 +243,8 @@ const HomeView: React.FC<HomeViewProps> = ({ hens, logs, onRefresh, onNotify, on
           quantity: Number(entryQuantity),
           timestamp: selectedTimestamp
         });
+        // NEW: Increment inventory!
+        await incrementEggInventory(Number(entryQuantity));
         onRefresh();
       } catch (err) {
         console.error("Firestore Error:", err);
@@ -446,6 +448,7 @@ const HomeView: React.FC<HomeViewProps> = ({ hens, logs, onRefresh, onNotify, on
         onClose={() => setShowPoster(false)}
         hens={hens}
         logs={logs}
+        onNotify={onNotify}
       />
     </div>
   );

@@ -1,6 +1,6 @@
 
 import { initializeApp } from 'firebase/app';
-import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc, query, orderBy, writeBatch, where, Timestamp, setDoc, getDoc } from 'firebase/firestore';
+import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc, query, orderBy, writeBatch, where, Timestamp, setDoc, getDoc, increment } from 'firebase/firestore';
 import { Hen, EggLog, Expense } from '../types';
 
 const firebaseConfig = {
@@ -36,6 +36,36 @@ export const getGlobalSettings = async () => {
 export const updateGlobalSettings = async (data: { eggPrice: number }) => {
   const docRef = doc(db, 'settings', 'global_config');
   await setDoc(docRef, data, { merge: true });
+};
+
+/**
+ * Inventory Management
+ */
+export const getEggInventory = async (): Promise<number> => {
+  const docRef = doc(db, 'settings', 'inventory');
+  const docSnap = await getDoc(docRef);
+  if (docSnap.exists()) {
+    return docSnap.data().count || 0;
+  }
+  return 0;
+};
+
+export const updateEggInventory = async (count: number) => {
+  const docRef = doc(db, 'settings', 'inventory');
+  await setDoc(docRef, { count }, { merge: true });
+};
+
+export const incrementEggInventory = async (amount: number) => {
+  const docRef = doc(db, 'settings', 'inventory');
+  await setDoc(docRef, { count: increment(amount) }, { merge: true });
+};
+
+export const decrementEggInventory = async (amount: number) => {
+  const docRef = doc(db, 'settings', 'inventory');
+  const docSnap = await getDoc(docRef);
+  const current = docSnap.exists() ? docSnap.data().count : 0;
+  const next = Math.max(0, current - amount);
+  await setDoc(docRef, { count: next }, { merge: true });
 };
 
 /**

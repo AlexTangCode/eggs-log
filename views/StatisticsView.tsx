@@ -197,25 +197,27 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, expenses, o
     let activeLogs = logs;
     let activeExpenses = expenses;
 
+    // Use destructuring and local constants to ensure TypeScript correctly narrows types within closures
     if (activeWindow) {
-      activeLogs = logs.filter(l => l.timestamp >= activeWindow.start && l.timestamp < activeWindow.end);
-      activeExpenses = expenses.filter(e => e.timestamp >= activeWindow.start && e.timestamp < activeWindow.end);
+      const { start, end } = activeWindow;
+      activeLogs = logs.filter(l => Number(l.timestamp) >= start && Number(l.timestamp) < end);
+      activeExpenses = expenses.filter(e => Number(e.timestamp) >= start && Number(e.timestamp) < end);
     }
     
-    // Fix: Explicitly ensure type safety for arithmetic operations by using Number() to cast operands.
-    // This addresses "The left-hand side of an arithmetic operation must be of type 'any', 'number', 'bigint' or an enum type" errors.
-    const activeTotal: number = Number(activeLogs.reduce((acc: number, l) => acc + (l.quantity || 1), 0));
-    const totalEggs: number = Number(logs.reduce((acc: number, l) => acc + (l.quantity || 1), 0));
-    const totalWeight: number = Number(logs.reduce((acc: number, l: EggLog) => acc + (l.weight * (l.quantity || 1)), 0));
-    const avgWeight: number = totalEggs > 0 ? Math.round(totalWeight / totalEggs) : 0;
+    // Explicitly calculate numeric values using Number() to ensure type safety for arithmetic operations.
+    // This resolves the error: "The left-hand side of an arithmetic operation must be of type 'any', 'number', 'bigint' or an enum type"
+    const activeTotalVal: number = activeLogs.reduce((acc: number, l) => acc + (Number(l.quantity) || 1), 0);
+    const totalEggsVal: number = logs.reduce((acc: number, l) => acc + (Number(l.quantity) || 1), 0);
+    const totalWeightVal: number = logs.reduce((acc: number, l: EggLog) => acc + (Number(l.weight) * (Number(l.quantity) || 1)), 0);
+    const avgWeightVal: number = totalEggsVal > 0 ? Math.round(totalWeightVal / totalEggsVal) : 0;
 
-    const totalExp: number = Number(activeExpenses.reduce((acc: number, e) => acc + e.amount, 0));
-    const totalRev: number = activeTotal * Number(eggPrice);
-    const netProfit: number = totalRev - totalExp;
-    const costPerEgg: string = activeTotal > 0 ? (totalExp / activeTotal).toFixed(2) : '0.00';
+    const totalExpVal: number = activeExpenses.reduce((acc: number, e) => acc + Number(e.amount), 0);
+    const totalRevVal: number = activeTotalVal * Number(eggPrice);
+    const netProfitVal: number = totalRevVal - totalExpVal;
+    const costPerEggVal: string = activeTotalVal > 0 ? (totalExpVal / activeTotalVal).toFixed(2) : '0.00';
 
     const expByCategory = activeExpenses.reduce((acc, e) => {
-      acc[e.category] = (acc[e.category] || 0) + e.amount;
+      acc[e.category] = (acc[e.category] || 0) + Number(e.amount);
       return acc;
     }, {} as Record<string, number>);
 
@@ -223,7 +225,7 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, expenses, o
 
     const henCounts = activeLogs.reduce((acc, l) => {
       const id = l.henId;
-      acc[id] = (acc[id] || 0) + (l.quantity || 1);
+      acc[id] = (acc[id] || 0) + (Number(l.quantity) || 1);
       return acc;
     }, {} as Record<string, number>);
 
@@ -237,14 +239,14 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, expenses, o
 
     return { 
       activeLogs,
-      activeTotal, 
-      totalEggs, 
-      avgWeight, 
+      activeTotal: activeTotalVal, 
+      totalEggs: totalEggsVal, 
+      avgWeight: avgWeightVal, 
       rankings, 
-      totalExp,
-      totalRev,
-      netProfit,
-      costPerEgg,
+      totalExp: totalExpVal,
+      totalRev: totalRevVal,
+      netProfit: netProfitVal,
+      costPerEgg: costPerEggVal,
       pieData
     };
   }, [logs, expenses, activeWindow, timeRange, eggPrice, henNameMap]);
@@ -482,7 +484,7 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, expenses, o
                     <div className="h-1.5 w-full bg-[#F9F5F0] rounded-full overflow-hidden">
                       <motion.div 
                         initial={{ width: 0 }}
-                        animate={{ width: `${(hen.count / stats.rankings[0].count) * 100}%` }}
+                        animate={{ width: `${(hen.count / (stats.rankings[0]?.count || 1)) * 100}%` }}
                         transition={{ duration: 0.8, ease: "easeOut" }}
                         className="h-full bg-[#D48C45] rounded-full"
                       />

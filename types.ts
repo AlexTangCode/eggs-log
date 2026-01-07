@@ -36,5 +36,6 @@ export enum View {
   HOME = 'home',
   STATISTICS = 'statistics',
   FINANCE = 'finance',
-  HENS = 'hens'
+  HENS = 'hens',
+  GUIDE = 'guide'
 }

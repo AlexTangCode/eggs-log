@@ -8,6 +8,7 @@ import HomeView from './views/HomeView';
 import StatisticsView from './views/StatisticsView';
 import FinanceView from './views/FinanceView';
 import HensView from './views/HensView';
+import GuideView from './views/GuideView';
 import { CheckCircle, Info } from 'lucide-react';
 
 const App: React.FC = () => {
@@ -79,6 +80,8 @@ const App: React.FC = () => {
                 return <FinanceView expenses={expenses} onRefresh={refreshData} onNotify={showNotification} />;
               case View.HENS:
                 return <HensView hens={hens} onRefresh={refreshData} onNotify={showNotification} />;
+              case View.GUIDE:
+                return <GuideView />;
               default:
                 return <HomeView hens={hens} logs={logs} onRefresh={refreshData} onNotify={showNotification} onNavigate={setCurrentView} />;
             }

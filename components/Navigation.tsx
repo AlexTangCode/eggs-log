@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Home, BarChart3, Wallet, Users } from 'lucide-react';
+import { Home, BarChart3, Wallet, Users, Utensils } from 'lucide-react';
 import { View } from '../types';
 import { motion } from 'framer-motion';
 
@@ -13,6 +13,7 @@ const Navigation: React.FC<NavigationProps> = ({ currentView, onViewChange }) =>
   const tabs = [
     { id: View.HOME, label: '首页', icon: Home },
     { id: View.STATISTICS, label: '统计', icon: BarChart3 },
+    { id: View.GUIDE, label: '吃蛋', icon: Utensils },
     { id: View.FINANCE, label: '支出', icon: Wallet },
     { id: View.HENS, label: '鸡群', icon: Users },
   ];

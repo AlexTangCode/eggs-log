@@ -1,18 +1,21 @@
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Share2, Egg, Heart, Trophy, Download } from 'lucide-react';
+import { X, Share2, Egg, Heart, Trophy, Download, Loader2 } from 'lucide-react';
 import { Hen, EggLog } from '../types';
 import HenGraphic from './HenGraphic';
+import html2canvas from 'html2canvas';
 
 interface PosterModalProps {
   isOpen: boolean;
   onClose: () => void;
   hens: Hen[];
   logs: EggLog[];
+  onNotify: (message: string, type?: 'success' | 'info') => void;
 }
 
-const PosterModal: React.FC<PosterModalProps> = ({ isOpen, onClose, hens, logs }) => {
+const PosterModal: React.FC<PosterModalProps> = ({ isOpen, onClose, hens, logs, onNotify }) => {
+  const [isSaving, setIsSaving] = useState(false);
   const todayDate = new Date().toDateString();
 
   const posterData = useMemo(() => {
@@ -43,6 +46,37 @@ const PosterModal: React.FC<PosterModalProps> = ({ isOpen, onClose, hens, logs }
       dateStr: new Date().toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })
     };
   }, [hens, logs, todayDate]);
+
+  const handleSaveImage = async () => {
+    const element = document.getElementById('share-poster');
+    if (!element) return;
+
+    try {
+      setIsSaving(true);
+      // Small delay to ensure any layout shifts are settled
+      await new Promise(r => setTimeout(r, 100));
+      
+      const canvas = await html2canvas(element, {
+        useCORS: true,
+        scale: 3, // High quality
+        backgroundColor: '#FFF9C4',
+        logging: false,
+      });
+
+      const dataUrl = canvas.toDataURL('image/png', 1.0);
+      const link = document.createElement('a');
+      link.download = `chloe_chicken_report_${new Date().toISOString().split('T')[0]}.png`;
+      link.href = dataUrl;
+      link.click();
+      
+      onNotify('战报图片已保存至相册/下载！');
+    } catch (err) {
+      console.error('Save error:', err);
+      onNotify('保存图片失败，请重试或手动截图。', 'info');
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   if (!posterData) return null;
 
@@ -140,7 +174,15 @@ const PosterModal: React.FC<PosterModalProps> = ({ isOpen, onClose, hens, logs }
             </motion.div>
 
             {/* Actions */}
-            <div className="mt-8 flex gap-4 w-full">
+            <div className="mt-8 flex gap-3 w-full">
+              <button
+                onClick={handleSaveImage}
+                disabled={isSaving}
+                className="flex-1 py-4 bg-white/20 backdrop-blur-md rounded-3xl text-white font-bold text-sm flex items-center justify-center gap-2 border border-white/20 active:scale-95 transition-transform disabled:opacity-50"
+              >
+                {isSaving ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} />}
+                保存图片
+              </button>
               <button
                 onClick={() => {
                   if (navigator.share) {
@@ -153,7 +195,7 @@ const PosterModal: React.FC<PosterModalProps> = ({ isOpen, onClose, hens, logs }
                     alert('请手动截图分享您的战报！');
                   }
                 }}
-                className="flex-1 py-4 bg-white/20 backdrop-blur-md rounded-3xl text-white font-bold text-sm flex items-center justify-center gap-2 border border-white/20"
+                className="flex-1 py-4 bg-white/10 backdrop-blur-md rounded-3xl text-white font-bold text-sm flex items-center justify-center gap-2 border border-white/10 active:scale-95 transition-transform"
               >
                 <Share2 size={18} /> 分享战报
               </button>
