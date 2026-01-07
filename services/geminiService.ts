@@ -1,6 +1,6 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { Hen, EggLog } from "../types";
+import { Hen, EggLog, Recipe } from "../types";
 
 export const getSmartInsights = async (hens: Hen[], logs: EggLog[]) => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -49,7 +49,7 @@ export const getSmartInsights = async (hens: Hen[], logs: EggLog[]) => {
   }
 };
 
-export const getChloeRecipe = async (inventoryCount: number) => {
+export const getChloeRecipe = async (inventoryCount: number): Promise<Recipe | null> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   const prompt = `
@@ -85,11 +85,13 @@ export const getChloeRecipe = async (inventoryCount: number) => {
             whyChloeLikes: { type: Type.STRING },
             steps: { type: Type.ARRAY, items: { type: Type.STRING } }
           },
-          required: ["recipeName", "eggsNeeded", "secret", "whyChloeLikes", "steps"]
+          required: ["recipeName", "eggsNeeded", "secret", "whyChloeLikes", "steps"],
+          propertyOrdering: ["recipeName", "eggsNeeded", "secret", "whyChloeLikes", "steps"]
         }
       }
     });
-    return JSON.parse(response.text || "{}");
+    const text = response.text?.trim() || "{}";
+    return JSON.parse(text);
   } catch (error) {
     console.error("Gemini Recipe Error:", error);
     return null;

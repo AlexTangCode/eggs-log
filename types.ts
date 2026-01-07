@@ -39,3 +39,12 @@ export enum View {
   HENS = 'hens',
   GUIDE = 'guide'
 }
+
+// Added Recipe interface for AI generated content
+export interface Recipe {
+  recipeName: string;
+  eggsNeeded: number;
+  steps: string[];
+  whyChloeLikes: string;
+  secret: string;
+}

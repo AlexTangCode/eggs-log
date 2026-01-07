@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { View, Hen, EggLog, Expense } from './types';
@@ -81,7 +80,7 @@ const App: React.FC = () => {
               case View.HENS:
                 return <HensView hens={hens} onRefresh={refreshData} onNotify={showNotification} />;
               case View.GUIDE:
-                return <GuideView />;
+                return <GuideView onNotify={showNotification} />;
               default:
                 return <HomeView hens={hens} logs={logs} onRefresh={refreshData} onNotify={showNotification} onNavigate={setCurrentView} />;
             }
