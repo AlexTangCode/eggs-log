@@ -1,7 +1,5 @@
 {
   "name": "Chloes Chicken",
   "description": "Elegant, swipe-based hen productivity tracker featuring the 'Gentle Glide' harvest animation and AI diagnostics.",
-  "requestFramePermissions": [
-    "camera"
-  ]
+  "requestFramePermissions": []
 }
