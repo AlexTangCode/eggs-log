@@ -30,24 +30,12 @@ export const getGlobalSettings = async () => {
   if (docSnap.exists()) {
     return docSnap.data();
   }
-  return { eggPrice: 1.5, openAiKey: '' };
+  return { eggPrice: 1.5 };
 };
 
-export const updateGlobalSettings = async (data: { eggPrice?: number; openAiKey?: string }) => {
+export const updateGlobalSettings = async (data: { eggPrice?: number }) => {
   const docRef = doc(db, 'settings', 'global_config');
   await setDoc(docRef, data, { merge: true });
-};
-
-/**
- * OpenAI Key Specific Helpers
- */
-export const getOpenAiKey = async (): Promise<string> => {
-  const settings = await getGlobalSettings();
-  return settings.openAiKey || '';
-};
-
-export const updateOpenAiKey = async (key: string) => {
-  await updateGlobalSettings({ openAiKey: key });
 };
 
 /**
