@@ -202,17 +202,17 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, expenses, o
       activeExpenses = expenses.filter(e => e.timestamp >= activeWindow.start && e.timestamp < activeWindow.end);
     }
     
-    // Fix: Explicitly ensure type safety for arithmetic operations by using number variables
-    // and removing redundant calls to Number() where properties are already typed as number.
-    const activeTotal: number = activeLogs.reduce((acc: number, l) => acc + (l.quantity || 1), 0);
-    const totalEggs: number = logs.reduce((acc: number, l) => acc + (l.quantity || 1), 0);
-    const totalWeight: number = logs.reduce((acc: number, l: EggLog) => acc + (l.weight * (l.quantity || 1)), 0);
-    const avgWeight = totalEggs > 0 ? Math.round(totalWeight / totalEggs) : 0;
+    // Fix: Explicitly ensure type safety for arithmetic operations by using Number() to cast operands.
+    // This addresses "The left-hand side of an arithmetic operation must be of type 'any', 'number', 'bigint' or an enum type" errors.
+    const activeTotal: number = Number(activeLogs.reduce((acc: number, l) => acc + (l.quantity || 1), 0));
+    const totalEggs: number = Number(logs.reduce((acc: number, l) => acc + (l.quantity || 1), 0));
+    const totalWeight: number = Number(logs.reduce((acc: number, l: EggLog) => acc + (l.weight * (l.quantity || 1)), 0));
+    const avgWeight: number = totalEggs > 0 ? Math.round(totalWeight / totalEggs) : 0;
 
-    const totalExp: number = activeExpenses.reduce((acc: number, e) => acc + e.amount, 0);
-    const totalRev: number = activeTotal * eggPrice;
+    const totalExp: number = Number(activeExpenses.reduce((acc: number, e) => acc + e.amount, 0));
+    const totalRev: number = activeTotal * Number(eggPrice);
     const netProfit: number = totalRev - totalExp;
-    const costPerEgg = activeTotal > 0 ? (totalExp / activeTotal).toFixed(2) : '0.00';
+    const costPerEgg: string = activeTotal > 0 ? (totalExp / activeTotal).toFixed(2) : '0.00';
 
     const expByCategory = activeExpenses.reduce((acc, e) => {
       acc[e.category] = (acc[e.category] || 0) + e.amount;

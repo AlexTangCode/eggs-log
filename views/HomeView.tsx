@@ -1,11 +1,12 @@
 
 import React, { useState, useMemo, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Egg, Calendar, Scale, Hash, X, Check, TrendingUp, CalendarDays } from 'lucide-react';
+import { Egg, Calendar, Scale, Hash, X, Check, TrendingUp, CalendarDays, Share2 } from 'lucide-react';
 import { addDoc } from 'firebase/firestore';
 import { Hen, EggLog, View } from '../types';
 import { eggLogsRef } from '../services/firebase';
 import HenGraphic from '../components/HenGraphic';
+import PosterModal from '../components/PosterModal';
 
 interface HomeViewProps {
   hens: Hen[];
@@ -138,6 +139,7 @@ const HomeView: React.FC<HomeViewProps> = ({ hens, logs, onRefresh, onNotify, on
   const [isSquishingId, setIsSquishingId] = useState<string | null>(null);
   const [dustParticles, setDustParticles] = useState<MagicDust[]>([]);
   const [showEntryModal, setShowEntryModal] = useState(false);
+  const [showPoster, setShowPoster] = useState(false);
   const [activeHen, setActiveHen] = useState<Hen | null>(null);
 
   const [entryWeight, setEntryWeight] = useState<number>(60);
@@ -228,10 +230,8 @@ const HomeView: React.FC<HomeViewProps> = ({ hens, logs, onRefresh, onNotify, on
       }));
       setDustParticles(newParticles);
 
-      // FIX: Correctly parse the entryDate using local time to avoid UTC offset issues
       const [year, month, day] = entryDate.split('-').map(Number);
       const now = new Date();
-      // Use local Date constructor: year, month (0-indexed), day, hours, minutes, seconds
       const finalDate = new Date(year, month - 1, day, now.getHours(), now.getMinutes(), now.getSeconds());
       const selectedTimestamp = finalDate.getTime();
       
@@ -258,7 +258,8 @@ const HomeView: React.FC<HomeViewProps> = ({ hens, logs, onRefresh, onNotify, on
 
   return (
     <div className="flex flex-col h-full bg-[#F9F5F0] relative overflow-hidden pt-safe">
-      <header className="pt-10 pb-4 px-10 text-center relative z-20">
+      <header className="pt-10 pb-4 px-10 flex items-center justify-between relative z-20">
+        <div className="w-10"></div> {/* Spacer */}
         <motion.h2
           initial={{ opacity: 0 }}
           animate={{ opacity: 0.6 }}
@@ -266,6 +267,13 @@ const HomeView: React.FC<HomeViewProps> = ({ hens, logs, onRefresh, onNotify, on
         >
           Chloes Chicken
         </motion.h2>
+        <motion.button
+          whileTap={{ scale: 0.9 }}
+          onClick={() => setShowPoster(true)}
+          className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-[#D48C45] shadow-sm border border-[#E5D3C5]/20 active:bg-[#F9F5F0]"
+        >
+          <Share2 size={18} />
+        </motion.button>
       </header>
 
       {hens.length === 0 ? (
@@ -344,6 +352,7 @@ const HomeView: React.FC<HomeViewProps> = ({ hens, logs, onRefresh, onNotify, on
         </>
       )}
 
+      {/* Entry Modal */}
       <AnimatePresence>
         {showEntryModal && (
           <motion.div
@@ -430,6 +439,14 @@ const HomeView: React.FC<HomeViewProps> = ({ hens, logs, onRefresh, onNotify, on
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Share Poster Modal */}
+      <PosterModal
+        isOpen={showPoster}
+        onClose={() => setShowPoster(false)}
+        hens={hens}
+        logs={logs}
+      />
     </div>
   );
 };
