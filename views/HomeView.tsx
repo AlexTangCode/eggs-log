@@ -27,13 +27,15 @@ const HenHeroItem: React.FC<{
   onTap: (hen: Hen) => void;
   isLaying: boolean;
   isSquishing: boolean;
+  hasLaidToday: boolean;
   dustParticles: MagicDust[];
   size?: number;
   totalEggs: number;
-}> = ({ hen, onTap, isLaying, isSquishing, dustParticles, size = 140, totalEggs }) => {
+}> = ({ hen, onTap, isLaying, isSquishing, hasLaidToday, dustParticles, size = 140, totalEggs }) => {
   return (
     <div className="relative flex flex-col items-center flex-shrink-0 select-none pb-12 w-[160px] h-full justify-center">
       <div className="relative">
+        {/* Hen Body */}
         <motion.div
           onTap={() => onTap(hen)}
           whileTap={{ scale: 0.94 }}
@@ -50,6 +52,7 @@ const HenHeroItem: React.FC<{
           </div>
         </motion.div>
 
+        {/* Magic Dust Particles during laying */}
         <AnimatePresence>
           {dustParticles.map(p => (
             <motion.div
@@ -67,10 +70,11 @@ const HenHeroItem: React.FC<{
           ))}
         </AnimatePresence>
 
+        {/* Falling Egg Animation */}
         <AnimatePresence>
           {isLaying && (
             <motion.div
-              key={`egg-${hen.id}`}
+              key={`falling-egg-${hen.id}`}
               initial={{ 
                 opacity: 0, 
                 x: -75 * (size / 180), 
@@ -78,10 +82,10 @@ const HenHeroItem: React.FC<{
                 scale: 0.6 
               }}
               animate={{
-                opacity: [0, 1, 1, 0.8, 0],
+                opacity: [0, 1, 1, 1, 1],
                 x: -75 * (size / 180),
                 y: 240 * (size / 180),
-                scale: [0.6, 1.1, 1, 0.9, 0.5],
+                scale: [0.6, 1.1, 1, 1, 1],
               }}
               transition={{
                 duration: 1.2,
@@ -96,8 +100,23 @@ const HenHeroItem: React.FC<{
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* Static Resting Egg (remains after laying) */}
+        {hasLaidToday && !isLaying && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.5, y: 180 * (size / 180) }}
+            animate={{ opacity: 1, scale: 1, y: 240 * (size / 180) }}
+            className="absolute left-1/2 top-0 pointer-events-none z-0"
+            style={{ x: -75 * (size / 180) }}
+          >
+            <div className="bg-[#FDF5E6] rounded-full w-9 h-11 shadow-[0_4px_10px_rgba(45,45,45,0.05)] flex items-center justify-center border border-[#D48C45]/5">
+              <Egg size={16} fill="#D48C45" stroke="none" className="opacity-40" />
+            </div>
+          </motion.div>
+        )}
       </div>
 
+      {/* Hen Info Panel */}
       <motion.div
         initial={{ opacity: 0, y: 5 }}
         animate={{ opacity: 1, y: 0 }}
@@ -130,6 +149,18 @@ const HomeView: React.FC<HomeViewProps> = ({ hens, logs, onRefresh, onNotify, on
   const [isDragging, setIsDragging] = useState(false);
   const [startX, setStartX] = useState(0);
   const [scrollLeft, setScrollLeft] = useState(0);
+
+  // Derive which hens have laid eggs today based on logs
+  const laidTodayIds = useMemo(() => {
+    const today = new Date().toDateString();
+    const ids = new Set<string>();
+    logs.forEach(log => {
+      if (new Date(log.timestamp).toDateString() === today) {
+        ids.add(log.henId);
+      }
+    });
+    return ids;
+  }, [logs]);
 
   const henTotals = useMemo(() => {
     const totals: Record<string, number> = {};
@@ -197,8 +228,12 @@ const HomeView: React.FC<HomeViewProps> = ({ hens, logs, onRefresh, onNotify, on
       }));
       setDustParticles(newParticles);
 
-      const d = new Date(entryDate);
-      const selectedTimestamp = d.getTime() + (new Date().getHours() * 3600000) + (new Date().getMinutes() * 60000);
+      // FIX: Correctly parse the entryDate using local time to avoid UTC offset issues
+      const [year, month, day] = entryDate.split('-').map(Number);
+      const now = new Date();
+      // Use local Date constructor: year, month (0-indexed), day, hours, minutes, seconds
+      const finalDate = new Date(year, month - 1, day, now.getHours(), now.getMinutes(), now.getSeconds());
+      const selectedTimestamp = finalDate.getTime();
       
       try {
         await addDoc(eggLogsRef, {
@@ -296,6 +331,7 @@ const HomeView: React.FC<HomeViewProps> = ({ hens, logs, onRefresh, onNotify, on
                     onTap={handleHenTap}
                     isLaying={isLayingId === hen.id}
                     isSquishing={isSquishingId === hen.id}
+                    hasLaidToday={laidTodayIds.has(hen.id)}
                     dustParticles={isLayingId === hen.id ? dustParticles : []}
                     size={HEN_DISPLAY_SIZE}
                     totalEggs={henTotals[hen.id] || 0}

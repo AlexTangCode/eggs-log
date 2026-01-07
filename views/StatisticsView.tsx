@@ -119,7 +119,7 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, expenses, o
   const [editDate, setEditDate] = useState<string>('');
   const [editTime, setEditTime] = useState<string>('');
 
-  const debounceTimeout = useRef<NodeJS.Timeout | null>(null);
+  const debounceTimeout = useRef<any>(null);
 
   useEffect(() => {
     getGlobalSettings().then(settings => {
@@ -197,20 +197,21 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, expenses, o
     let activeLogs = logs;
     let activeExpenses = expenses;
 
-    // Strict filtering by Year and Month using range
     if (activeWindow) {
       activeLogs = logs.filter(l => l.timestamp >= activeWindow.start && l.timestamp < activeWindow.end);
       activeExpenses = expenses.filter(e => e.timestamp >= activeWindow.start && e.timestamp < activeWindow.end);
     }
     
+    // Fix: Explicitly ensure type safety for arithmetic operations by using number variables
+    // and removing redundant calls to Number() where properties are already typed as number.
     const activeTotal: number = activeLogs.reduce((acc: number, l) => acc + (l.quantity || 1), 0);
     const totalEggs: number = logs.reduce((acc: number, l) => acc + (l.quantity || 1), 0);
-    const totalWeight: number = logs.reduce((acc: number, l: EggLog) => acc + (Number(l.weight) * (Number(l.quantity) || 1)), 0);
+    const totalWeight: number = logs.reduce((acc: number, l: EggLog) => acc + (l.weight * (l.quantity || 1)), 0);
     const avgWeight = totalEggs > 0 ? Math.round(totalWeight / totalEggs) : 0;
 
-    const totalExp = activeExpenses.reduce((acc, e) => acc + e.amount, 0);
-    const totalRev = activeTotal * eggPrice;
-    const netProfit = totalRev - totalExp;
+    const totalExp: number = activeExpenses.reduce((acc: number, e) => acc + e.amount, 0);
+    const totalRev: number = activeTotal * eggPrice;
+    const netProfit: number = totalRev - totalExp;
     const costPerEgg = activeTotal > 0 ? (totalExp / activeTotal).toFixed(2) : '0.00';
 
     const expByCategory = activeExpenses.reduce((acc, e) => {
@@ -263,7 +264,12 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({ hens, logs, expenses, o
   const handleUpdateLog = async () => {
     if (!editingLog) return;
     try {
-      const newTimestamp = new Date(`${editDate}T${editTime}`).getTime();
+      // FIX: Use local time parsing to avoid UTC offset issues
+      const [year, month, day] = editDate.split('-').map(Number);
+      const [hour, min] = editTime.split(':').map(Number);
+      const finalDate = new Date(year, month - 1, day, hour, min, 0);
+      const newTimestamp = finalDate.getTime();
+      
       await updateEggLogDetailed(editingLog.id, {
         weight: Number(editWeight),
         quantity: Number(editQuantity),
