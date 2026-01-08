@@ -1,11 +1,9 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Egg, Plus, RefreshCcw, ChefHat, X, Utensils, Loader2, Sparkles, Settings, Save, Trash2, Share2 } from 'lucide-react';
+import { Egg, Plus, RefreshCcw, ChefHat, X, Utensils, Loader2, Sparkles, Settings, Save, Trash2 } from 'lucide-react';
 import { getEggInventory, incrementEggInventory, decrementEggInventory, getOpenAiKey, updateOpenAiKey } from '../services/firebase';
 import { getOpenAiRecipe, OpenAiRecipe } from '../services/openaiService';
-import RecipePosterModal from '../components/RecipePosterModal';
-import { Recipe } from '../types';
 
 interface GuideViewProps {
   onNotify?: (message: string, type?: 'success' | 'info') => void;
@@ -18,9 +16,8 @@ const GuideView: React.FC<GuideViewProps> = ({ onNotify }) => {
   const [recipeLoading, setRecipeLoading] = useState(false);
   const [crackingIndex, setCrackingIndex] = useState<number | null>(null);
   
-  // Settings & Share state
+  // Settings state
   const [showSettings, setShowSettings] = useState(false);
-  const [showShareModal, setShowShareModal] = useState(false);
   const [apiKey, setApiKey] = useState<string>('');
   const [tempKey, setTempKey] = useState('');
 
@@ -112,15 +109,6 @@ const GuideView: React.FC<GuideViewProps> = ({ onNotify }) => {
   };
 
   const slots = useMemo(() => Array.from({ length: 12 }), []);
-
-  // Map OpenAiRecipe to common Recipe type for the poster
-  const sharedRecipe: Recipe | null = recipe ? {
-    recipeName: recipe.recipeName,
-    eggsNeeded: recipe.eggsNeeded,
-    steps: recipe.steps,
-    whyChloeLikes: recipe.whyChloeLikes,
-    secret: recipe.secret
-  } : null;
 
   return (
     <div className="p-10 pb-44 bg-[#F9F5F0] min-h-full scroll-native overflow-y-auto">
@@ -252,15 +240,7 @@ const GuideView: React.FC<GuideViewProps> = ({ onNotify }) => {
               animate={{ opacity: 1, scale: 1 }}
               className="bg-white rounded-[40px] p-8 border border-[#E5D3C5]/20 shadow-[0_20px_60px_rgba(45,45,45,0.03)] relative"
             >
-              <button 
-                onClick={() => setShowShareModal(true)}
-                className="absolute top-6 right-6 p-2 text-[#A0A0A0] hover:text-[#D48C45] transition-colors"
-                title="生成分享卡片"
-              >
-                <Share2 size={20} />
-              </button>
-
-              <div className="flex items-start justify-between mb-8 pr-10">
+              <div className="flex items-start justify-between mb-8">
                 <div className="flex-1">
                   <h3 className="font-serif text-2xl font-black text-[#2D2D2D] leading-tight mb-2">
                     {recipe.recipeName}
@@ -336,7 +316,7 @@ const GuideView: React.FC<GuideViewProps> = ({ onNotify }) => {
               initial={{ scale: 0.9, y: 20 }}
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.9, y: 20 }}
-              className="bg-white rounded-[40px] w-full max-w-sm p-8 shadow-2xl border border-[#E5D3C5]/10 relative h-fit"
+              className="bg-white rounded-[40px] w-full max-sm p-8 shadow-2xl border border-[#E5D3C5]/10 relative h-fit"
             >
               <button
                 onClick={() => setShowSettings(false)}
@@ -388,16 +368,6 @@ const GuideView: React.FC<GuideViewProps> = ({ onNotify }) => {
           </motion.div>
         )}
       </AnimatePresence>
-
-      {/* Share Modal */}
-      {sharedRecipe && (
-        <RecipePosterModal 
-          isOpen={showShareModal} 
-          onClose={() => setShowShareModal(false)} 
-          recipe={sharedRecipe} 
-          onNotify={onNotify || (() => {})} 
-        />
-      )}
     </div>
   );
 };
